@@ -19,7 +19,7 @@ public final class NodeUpgradeData {
     private static final int IRON_ITEM_CAP = 16;
     private static final int GOLD_ITEM_CAP = 32;
     private static final int DIAMOND_ITEM_CAP = 64;
-    private static final int NETHERITE_ITEM_CAP = 9_999;
+    private static final int NETHERITE_ITEM_CAP = 10_000;
 
     private static final int NO_UPGRADE_ENERGY_CAP = 2_000;
     private static final int IRON_ENERGY_CAP = 10_000;

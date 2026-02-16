@@ -19,6 +19,9 @@ public class ClipboardScreen extends AbstractContainerScreen<ClipboardMenu> {
     private static final int COLOR_TEXT = 0xFFE0E0E0;
     private static final int COLOR_DIM = 0xFF888888;
     private static final int COLOR_HOVER = 0x30FFFFFF;
+    private static final Component EDITOR_TITLE = Component.translatable("gui.logisticsnetworks.clipboard.editor");
+    private static final Component VISUAL_SLOTS_HINT = Component
+            .translatable("gui.logisticsnetworks.clipboard.visual_slots_hint");
 
     public ClipboardScreen(ClipboardMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -37,7 +40,7 @@ public class ClipboardScreen extends AbstractContainerScreen<ClipboardMenu> {
         graphics.fill(leftPos, topPos, leftPos + GUI_WIDTH, topPos + GUI_HEIGHT, COLOR_BG);
         graphics.renderOutline(leftPos, topPos, GUI_WIDTH, GUI_HEIGHT, COLOR_BORDER);
 
-        graphics.drawCenteredString(font, "Clipboard Editor", leftPos + GUI_WIDTH / 2, topPos + 8, COLOR_ACCENT);
+        graphics.drawCenteredString(font, EDITOR_TITLE, leftPos + GUI_WIDTH / 2, topPos + 8, COLOR_ACCENT);
         drawButton(graphics, leftPos + GUI_WIDTH - 56, topPos + 6, 46, 12, "Clear", mouseX, mouseY);
 
         renderChannelTabs(graphics, mouseX, mouseY);
@@ -117,8 +120,7 @@ public class ClipboardScreen extends AbstractContainerScreen<ClipboardMenu> {
         graphics.drawString(font, "Upgrades", upgradeX, topPos + 118, COLOR_DIM, false);
         drawSlotGrid(graphics, upgradeX, upgradeY, 2, 2);
 
-        graphics.drawString(font, "Visual slots: click item to set, empty hand to clear", leftPos + 10,
-                topPos + 182, COLOR_DIM, false);
+        graphics.drawString(font, VISUAL_SLOTS_HINT, leftPos + 10, topPos + 182, COLOR_DIM, false);
     }
 
     private void drawButton(GuiGraphics graphics, int x, int y, int width, int height, String label, int mouseX,
@@ -248,7 +250,7 @@ public class ClipboardScreen extends AbstractContainerScreen<ClipboardMenu> {
     }
 
     private boolean isHoveringBox(double x, double y, double width, double height, double mouseX, double mouseY) {
-        return mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
+        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
     }
 
     private boolean isHoveringMenuSlot(double mouseX, double mouseY) {

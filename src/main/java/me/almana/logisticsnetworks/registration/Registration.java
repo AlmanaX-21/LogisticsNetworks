@@ -72,6 +72,8 @@ public class Registration {
                         () -> new NbtFilterItem(new Item.Properties()));
         public static final DeferredHolder<Item, ModFilterItem> MOD_FILTER = ITEMS.register("mod_filter",
                         () -> new ModFilterItem(new Item.Properties()));
+        public static final DeferredHolder<Item, SlotFilterItem> SLOT_FILTER = ITEMS.register("slot_filter",
+                        () -> new SlotFilterItem(new Item.Properties()));
 
         public static final DeferredHolder<Item, NodeUpgradeItem> IRON_UPGRADE = ITEMS.register("iron_upgrade",
                         () -> new NodeUpgradeItem(new Item.Properties(), 16, 1_000, 10_000, 10));
@@ -81,7 +83,7 @@ public class Registration {
                         () -> new NodeUpgradeItem(new Item.Properties(), 64, 20_000, 250_000, 1));
         public static final DeferredHolder<Item, NodeUpgradeItem> NETHERITE_UPGRADE = ITEMS.register(
                         "netherite_upgrade",
-                        () -> new NodeUpgradeItem(new Item.Properties(), 9_999, 1_000_000, Integer.MAX_VALUE, 1));
+                        () -> new NodeUpgradeItem(new Item.Properties(), 10_000, 1_000_000, Integer.MAX_VALUE, 1));
 
         public static final DeferredHolder<Item, DimensionalUpgradeItem> DIMENSIONAL_UPGRADE = ITEMS.register(
                         "dimensional_upgrade",

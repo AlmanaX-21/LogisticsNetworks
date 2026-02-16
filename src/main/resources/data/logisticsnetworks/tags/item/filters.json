@@ -8,6 +8,7 @@
     "logisticsnetworks:mod_filter",
     "logisticsnetworks:amount_filter",
     "logisticsnetworks:durability_filter",
-    "logisticsnetworks:nbt_filter"
+    "logisticsnetworks:nbt_filter",
+    "logisticsnetworks:slot_filter"
   ]
 }

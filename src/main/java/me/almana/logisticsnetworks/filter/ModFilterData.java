@@ -116,6 +116,29 @@ public final class ModFilterData {
         return changed[0];
     }
 
+    public static boolean setSingleModFilter(ItemStack stack, String rawModId) {
+        if (!isModFilter(stack))
+            return false;
+        String modId = normalizeModId(rawModId);
+        if (modId == null)
+            return false;
+
+        boolean[] changed = { false };
+        updateRoot(stack, root -> {
+            ListTag list = root.getList(KEY_MODS, Tag.TAG_STRING);
+            boolean alreadySingle = list.size() == 1 && modId.equals(list.getString(0));
+            if (alreadySingle) {
+                return;
+            }
+
+            ListTag single = new ListTag();
+            single.add(StringTag.valueOf(modId));
+            root.put(KEY_MODS, single);
+            changed[0] = true;
+        });
+        return changed[0];
+    }
+
     public static boolean removeModFilter(ItemStack stack, String rawModId) {
         if (!isModFilter(stack))
             return false;

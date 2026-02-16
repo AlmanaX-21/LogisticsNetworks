@@ -5,6 +5,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import me.almana.logisticsnetworks.filter.DurabilityFilterData;
 import me.almana.logisticsnetworks.filter.FilterTargetType;
 import me.almana.logisticsnetworks.filter.NbtFilterData;
+import me.almana.logisticsnetworks.filter.SlotFilterData;
 
 import me.almana.logisticsnetworks.menu.FilterMenu;
 import me.almana.logisticsnetworks.network.*;
@@ -34,11 +35,7 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
 
     // Layout Constants
     private static final int GUI_WIDTH = 176;
-    private static final int GUI_HEIGHT = 166;
-    private static final int INV_Y = 84;
     private static final int FILTER_SLOT_SIZE = 18;
-    private static final int FILTER_GRID_X = 7;
-    private static final int FILTER_GRID_Y = 19;
 
     // Control Constants
     private static final int LIST_ROW_H = 12;
@@ -60,6 +57,12 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     private EditBox manualInputBox;
     private boolean isDropdownOpen = false;
     private int listScrollOffset = 0;
+    private boolean slotInfoOpen = false;
+    private int slotInfoPage = 0;
+    private boolean amountInfoOpen = false;
+    private int amountInfoPage = 0;
+    private boolean flushedTextOnClose = false;
+    private boolean wasManualInputFocused = false;
 
     // Cached Data
     private List<String> cachedTags = new ArrayList<>();
@@ -72,15 +75,15 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     public FilterScreen(FilterMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = GUI_WIDTH;
-        this.imageHeight = GUI_HEIGHT;
-        this.inventoryLabelY = INV_Y - 10;
+        this.imageHeight = Math.max(166, menu.getPlayerInventoryY() + 83);
+        this.inventoryLabelY = menu.getPlayerInventoryY() - 10;
     }
 
     @Override
     protected void init() {
         super.init();
         this.leftPos = (this.width - GUI_WIDTH) / 2;
-        this.topPos = (this.height - GUI_HEIGHT) / 2;
+        this.topPos = (this.height - imageHeight) / 2;
 
         setupInputBox();
         refreshFilterData();
@@ -108,7 +111,18 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
 
         if (menu.isTagMode() || menu.isModMode()) {
             manualInputBox.setVisible(true);
+            manualInputBox.setHint(Component.literal(menu.isTagMode()
+                    ? "Enter tag (e.g. forge:ores)..."
+                    : "Enter mod ID (e.g. minecraft)..."));
+            manualInputBox.setX(getSelectorInputX());
+            manualInputBox.setY(getSelectorInputY());
+            manualInputBox.setWidth(getSelectorInputWidth());
+            if (!manualInputBox.isFocused() && !manualInputBox.getValue().equals(getCurrentTargetValue())) {
+                manualInputBox.setValue(getCurrentTargetValue());
+            }
+        } else if (menu.isSlotMode()) {
             manualInputBox.setVisible(true);
+            manualInputBox.setHint(Component.translatable("gui.logisticsnetworks.filter.slot.input_hint"));
             if (!manualInputBox.isFocused() && !manualInputBox.getValue().equals(getCurrentTargetValue())) {
                 manualInputBox.setValue(getCurrentTargetValue());
             }
@@ -118,6 +132,22 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
                 manualInputBox.setFocused(false);
             }
         }
+
+        if (!menu.isSlotMode()) {
+            slotInfoOpen = false;
+            slotInfoPage = 0;
+        }
+        if (!menu.isAmountMode()) {
+            amountInfoOpen = false;
+            amountInfoPage = 0;
+        }
+
+        if (manualInputBox != null) {
+            if (wasManualInputFocused && !manualInputBox.isFocused()) {
+                commitManualInput();
+            }
+            wasManualInputFocused = manualInputBox.isFocused();
+        }
     }
 
     private String getCurrentTargetValue() {
@@ -125,6 +155,8 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
             return Objects.requireNonNullElse(menu.getSelectedTag(), "");
         if (menu.isModMode())
             return Objects.requireNonNullElse(menu.getSelectedMod(), "");
+        if (menu.isSlotMode())
+            return Objects.requireNonNullElse(menu.getSlotExpression(), "");
         return "";
     }
 
@@ -193,7 +225,7 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
 
     @Override
     protected void renderBg(GuiGraphics g, float pt, int mx, int my) {
-        renderPanel(g, leftPos, topPos, GUI_WIDTH, GUI_HEIGHT);
+        renderPanel(g, leftPos, topPos, imageWidth, imageHeight);
 
         g.drawString(font, title, leftPos + 8, topPos + 6, COL_ACCENT, false);
 
@@ -203,6 +235,8 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
             renderModMode(g, mx, my);
         else if (menu.isNbtMode())
             renderNbtMode(g, mx, my);
+        else if (menu.isSlotMode())
+            renderSlotMode(g, mx, my);
         else if (menu.isAmountMode())
             renderAmountMode(g, mx, my);
         else if (menu.isDurabilityMode())
@@ -210,21 +244,23 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
         else
             renderStandardFilterGrid(g, mx, my);
 
-        int sepY = topPos + INV_Y - 12;
-        g.fill(leftPos + 8, sepY, leftPos + GUI_WIDTH - 8, sepY + 1, COL_BORDER);
-        g.drawString(font, playerInventoryTitle, leftPos + 8, topPos + INV_Y - 10, COL_GRAY, false);
+        int playerInvY = menu.getPlayerInventoryY();
+        int sepY = topPos + playerInvY - 12;
+        g.fill(leftPos + 8, sepY, leftPos + imageWidth - 8, sepY + 1, COL_BORDER);
+        g.drawString(font, playerInventoryTitle, leftPos + 8, topPos + playerInvY - 10, COL_GRAY, false);
 
         renderPlayerSlots(g);
     }
 
+    @Override
+    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
+        // Labels are rendered manually in renderBg to support custom layouts per mode.
+    }
+
     private void renderStandardFilterGrid(GuiGraphics g, int mx, int my) {
-        int rows = menu.getRows();
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < 9; c++) {
-                int x = leftPos + FILTER_GRID_X + c * FILTER_SLOT_SIZE;
-                int y = topPos + FILTER_GRID_Y + r * FILTER_SLOT_SIZE;
-                drawSlot(g, x, y);
-            }
+        for (int i = 0; i < menu.getFilterSlots() && i < menu.slots.size(); i++) {
+            var slot = menu.slots.get(i);
+            drawSlot(g, leftPos + slot.x - 1, topPos + slot.y - 1);
         }
 
         if (menu.getTargetType() == FilterTargetType.FLUIDS) {
@@ -233,39 +269,37 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     }
 
     private void renderTagMode(GuiGraphics g, int mx, int my) {
-        renderDropdownMode(g, mx, my, "Tag Filter", cachedTags,
+        renderDropdownMode(g, mx, my, cachedTags,
                 menu.getSelectedTag(),
                 "Enter tag (e.g. forge:ores)...");
     }
 
     private void renderModMode(GuiGraphics g, int mx, int my) {
-        renderDropdownMode(g, mx, my, "Mod Filter", cachedMods,
+        renderDropdownMode(g, mx, my, cachedMods,
                 menu.getSelectedMod(),
                 "Enter mod ID (e.g. minecraft)...");
     }
 
-    private void renderDropdownMode(GuiGraphics g, int mx, int my, String title, List<String> items, String current,
+    private void renderDropdownMode(GuiGraphics g, int mx, int my, List<String> items, String current,
             String hint) {
-        int x = leftPos + 28;
-        int y = topPos + 40;
-        int w = 120;
+        int x = getSelectorInputX();
+        int y = getSelectorInputY();
+        int w = getSelectorInputWidth();
+        int arrowX = getSelectorArrowX();
 
-        g.drawString(font, title, leftPos + 8, topPos + 20, COL_WHITE, false);
-        g.drawString(font, "Selected: " + (current == null ? "None" : current), leftPos + 8, topPos + 30, COL_GRAY,
+        renderExtractorSlotTarget(g, mx, my);
+        g.drawString(font, "Selected: " + (current == null ? "None" : current), leftPos + 8, topPos + 22, COL_GRAY,
                 false);
 
-        manualInputBox.setX(x);
-        manualInputBox.setY(y);
-        manualInputBox.setWidth(w);
         manualInputBox.setHint(Component.literal(hint));
 
         boolean hoveringDropdown = isHovering(x, y, w, 14, mx, my);
         g.renderOutline(x, y, w, 14, (hoveringDropdown || isDropdownOpen) ? COL_WHITE : COL_BORDER);
-        if (!manualInputBox.isFocused()) {
+        if (!manualInputBox.isVisible() && !manualInputBox.isFocused()) {
             g.drawCenteredString(font, current != null ? current : "", x + w / 2, y + 3, COL_WHITE);
         }
 
-        g.drawCenteredString(font, isDropdownOpen ? "^" : "v", x + w + 8, y + 3, COL_GRAY);
+        g.drawCenteredString(font, isDropdownOpen ? "^" : "v", arrowX + 6, y + 3, COL_GRAY);
 
         if (isDropdownOpen) {
             renderDropdownList(g, x, y + 16, w, items, current, mx, my);
@@ -304,35 +338,149 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     }
 
     private void renderNbtMode(GuiGraphics g, int mx, int my) {
-        int x = leftPos + 28;
+        int x = getSelectorInputX();
         int y = topPos + 30;
-        int w = 120;
+        int w = getSelectorInputWidth();
+        int arrowX = getSelectorArrowX();
 
-        g.drawString(font, "NBT Filter", leftPos + 8, topPos + 18, COL_WHITE, false);
+        if (manualInputBox != null && manualInputBox.isVisible()) {
+            manualInputBox.setVisible(false);
+            manualInputBox.setFocused(false);
+        }
+
+        renderExtractorSlotTarget(g, mx, my);
 
         // Path Selector
         String path = menu.getSelectedNbtPath();
         String displayPath = path == null ? "Select Path..." : path;
 
         drawButton(g, x, y, w, 14, scrollText(displayPath, w - 16, 0), mx, my, true);
-        g.drawCenteredString(font, isDropdownOpen ? "^" : "v", x + w + 8, y + 3, COL_GRAY);
+        g.drawCenteredString(font, isDropdownOpen ? "^" : "v", arrowX + 6, y + 3, COL_GRAY);
 
         if (isDropdownOpen) {
             List<String> paths = cachedNbtEntries.stream().map(NbtFilterData.NbtEntry::path).toList();
             renderDropdownList(g, x, y + 16, w, paths, path, mx, my);
         } else {
             int valY = y + 25;
-            g.drawString(font, "Value:", x, valY, COL_GRAY, false);
+            g.drawString(font, Component.translatable("gui.logisticsnetworks.filter.nbt.value"), x, valY, COL_GRAY, false);
             String val = menu.getSelectedNbtValue();
             g.drawString(font, scrollText(val != null ? val : "None", w, 50), x, valY + 10, COL_ACCENT, false);
         }
     }
 
+    private void renderSlotMode(GuiGraphics g, int mx, int my) {
+        int contentX = leftPos + 8;
+        int contentW = imageWidth - 16;
+        int modeY = topPos + 18;
+        int modeBtnW = 64;
+        int modeBtnH = 14;
+        int modeBtnX = leftPos + imageWidth - 8 - modeBtnW;
+        int inputY = topPos + 34;
+        int activeY = topPos + 52;
+        int hintY = topPos + 62;
+        int infoBtnX = leftPos + imageWidth - 8 - 12;
+        int infoBtnY = topPos + 6;
+        int infoBtnSize = 12;
+
+        drawButton(g, infoBtnX, infoBtnY, infoBtnSize, infoBtnSize,
+                Component.translatable("gui.logisticsnetworks.filter.info.icon").getString(), mx, my, true);
+
+        g.drawString(font, Component.translatable("gui.logisticsnetworks.filter.slot.mode_label"),
+                contentX, modeY + 3, COL_GRAY, false);
+
+        String modeLabel = Component.translatable(menu.isBlacklistMode()
+                ? "gui.logisticsnetworks.filter.mode.blacklist"
+                : "gui.logisticsnetworks.filter.mode.whitelist").getString();
+        drawButton(g, modeBtnX, modeY, modeBtnW, modeBtnH, modeLabel, mx, my, true);
+
+        manualInputBox.setX(contentX);
+        manualInputBox.setY(inputY);
+        manualInputBox.setWidth(contentW);
+
+        String value = menu.getSlotExpression();
+        String display = value.isEmpty()
+                ? Component.translatable("gui.logisticsnetworks.filter.slot.none").getString()
+                : value;
+        String activeLine = Component.translatable("gui.logisticsnetworks.filter.slot.active", display).getString();
+        g.drawString(font, font.plainSubstrByWidth(activeLine, contentW), contentX, activeY, COL_ACCENT, false);
+
+        String hintLine = Component
+                .translatable("gui.logisticsnetworks.filter.slot.hint", SlotFilterData.MIN_SLOT, SlotFilterData.MAX_SLOT)
+                .getString();
+        g.drawString(font, font.plainSubstrByWidth(hintLine, contentW), contentX, hintY, COL_GRAY, false);
+
+        if (slotInfoOpen) {
+            renderSlotInfoOverlay(g, mx, my);
+        }
+    }
+
+    private void renderSlotInfoOverlay(GuiGraphics g, int mx, int my) {
+        int x = leftPos + 8;
+        int y = topPos + 16;
+        int w = imageWidth - 16;
+        int maxBottom = topPos + menu.getPlayerInventoryY() - 14;
+        int h = Math.max(68, maxBottom - y);
+        if (y + h > maxBottom) {
+            h = Math.max(40, maxBottom - y);
+        }
+        int pad = 4;
+
+        g.pose().pushPose();
+        g.pose().translate(0, 0, 300);
+        g.fill(x, y, x + w, y + h, 0xF0101010);
+        g.renderOutline(x, y, w, h, COL_BORDER);
+
+        String titleKey = slotInfoPage == 0
+                ? "gui.logisticsnetworks.filter.slot.info.export.title"
+                : "gui.logisticsnetworks.filter.slot.info.import.title";
+        g.drawString(font, Component.translatable(titleKey), x + pad, y + pad, COL_WHITE, false);
+
+        String line1 = Component.translatable(slotInfoPage == 0
+                ? "gui.logisticsnetworks.filter.slot.info.export.p1"
+                : "gui.logisticsnetworks.filter.slot.info.import.p1").getString();
+        String line2 = Component.translatable(slotInfoPage == 0
+                ? "gui.logisticsnetworks.filter.slot.info.export.p2"
+                : "gui.logisticsnetworks.filter.slot.info.import.p2").getString();
+
+        int navY = y + h - 16;
+        int textY = y + pad + 11;
+        int textW = w - pad * 2;
+        int maxTextBottom = navY - 2;
+        for (var part : font.split(Component.literal(line1), textW)) {
+            if (textY + 8 > maxTextBottom) {
+                break;
+            }
+            g.drawString(font, part, x + pad, textY, COL_GRAY, false);
+            textY += 9;
+        }
+        for (var part : font.split(Component.literal(line2), textW)) {
+            if (textY + 8 > maxTextBottom) {
+                break;
+            }
+            g.drawString(font, part, x + pad, textY, COL_GRAY, false);
+            textY += 9;
+        }
+
+        int prevX = x + w - 40;
+        int nextX = x + w - 22;
+        drawButton(g, prevX, navY, 14, 12, "<", mx, my, slotInfoPage > 0);
+        drawButton(g, nextX, navY, 14, 12, ">", mx, my, slotInfoPage < 1);
+
+        g.pose().popPose();
+    }
+
     private void renderAmountMode(GuiGraphics g, int mx, int my) {
         int cx = leftPos + GUI_WIDTH / 2;
         int cy = topPos + 40;
+        int infoBtnX = leftPos + imageWidth - 8 - 12;
+        int infoBtnY = topPos + 6;
+        int infoBtnSize = 12;
 
-        g.drawCenteredString(font, "Amount Threshold", cx, topPos + 20, COL_WHITE);
+        drawButton(g, infoBtnX, infoBtnY, infoBtnSize, infoBtnSize,
+                Component.translatable("gui.logisticsnetworks.filter.info.icon").getString(), mx, my, true);
+
+        g.drawCenteredString(font, Component.translatable("gui.logisticsnetworks.filter.amount.threshold"), cx,
+                topPos + 20, COL_WHITE);
 
         g.fill(cx - 30, cy - 2, cx + 30, cy + 10, COL_BTN_BG);
         g.renderOutline(cx - 30, cy - 2, 60, 12, COL_BORDER);
@@ -345,6 +493,69 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
         drawAmountButton(g, cx + 18, btnY, "+1", mx, my);
         drawAmountButton(g, cx + 44, btnY, "+10", mx, my);
         drawAmountButton(g, cx + 70, btnY, "+64", mx, my);
+
+        if (amountInfoOpen) {
+            renderAmountInfoOverlay(g, mx, my);
+        }
+    }
+
+    private void renderAmountInfoOverlay(GuiGraphics g, int mx, int my) {
+        int x = leftPos + 8;
+        int y = topPos + 16;
+        int w = imageWidth - 16;
+        int maxBottom = topPos + menu.getPlayerInventoryY() - 14;
+        int h = Math.max(68, maxBottom - y);
+        if (y + h > maxBottom) {
+            h = Math.max(40, maxBottom - y);
+        }
+        int pad = 4;
+
+        g.pose().pushPose();
+        g.pose().translate(0, 0, 300);
+        g.fill(x, y, x + w, y + h, 0xF0101010);
+        g.renderOutline(x, y, w, h, COL_BORDER);
+
+        String titleKey = amountInfoPage == 0
+                ? "gui.logisticsnetworks.filter.amount.info.import.title"
+                : "gui.logisticsnetworks.filter.amount.info.export.title";
+        g.drawString(font, Component.translatable(titleKey), x + pad, y + pad, COL_WHITE, false);
+
+        String line1Key = amountInfoPage == 0
+                ? "gui.logisticsnetworks.filter.amount.info.import.p1"
+                : "gui.logisticsnetworks.filter.amount.info.export.p1";
+        String line2Key = amountInfoPage == 0
+                ? "gui.logisticsnetworks.filter.amount.info.import.p2"
+                : "gui.logisticsnetworks.filter.amount.info.export.p2";
+        String line3Key = amountInfoPage == 0
+                ? "gui.logisticsnetworks.filter.amount.info.import.p3"
+                : "gui.logisticsnetworks.filter.amount.info.export.p3";
+
+        int navY = y + h - 16;
+        int textY = y + pad + 11;
+        int textW = w - pad * 2;
+        int maxTextBottom = navY - 2;
+        textY = drawWrappedInfoLine(g, Component.translatable(line1Key).getString(), x + pad, textY, textW, maxTextBottom);
+        textY = drawWrappedInfoLine(g, Component.translatable(line2Key).getString(), x + pad, textY, textW, maxTextBottom);
+        drawWrappedInfoLine(g, Component.translatable(line3Key).getString(), x + pad, textY, textW, maxTextBottom);
+
+        int prevX = x + w - 40;
+        int nextX = x + w - 22;
+        drawButton(g, prevX, navY, 14, 12, "<", mx, my, amountInfoPage > 0);
+        drawButton(g, nextX, navY, 14, 12, ">", mx, my, amountInfoPage < 1);
+
+        g.pose().popPose();
+    }
+
+    private int drawWrappedInfoLine(GuiGraphics g, String line, int x, int y, int width, int maxBottom) {
+        int nextY = y;
+        for (var part : font.split(Component.literal(line), width)) {
+            if (nextY + 8 > maxBottom) {
+                break;
+            }
+            g.drawString(font, part, x, nextY, COL_GRAY, false);
+            nextY += 9;
+        }
+        return nextY;
     }
 
     private void renderDurabilityMode(GuiGraphics g, int mx, int my) {
@@ -372,17 +583,12 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     }
 
     private void renderPlayerSlots(GuiGraphics g) {
-        for (int r = 0; r < 3; r++) {
-            for (int c = 0; c < 9; c++) {
-                int x = leftPos + 8 + c * 18 - 1;
-                int y = topPos + INV_Y + r * 18 - 1;
-                drawSlot(g, x, y);
+        for (int i = 0; i < menu.slots.size(); i++) {
+            if (!menu.isPlayerInventorySlot(i)) {
+                continue;
             }
-        }
-        for (int c = 0; c < 9; c++) {
-            int x = leftPos + 8 + c * 18 - 1;
-            int y = topPos + INV_Y + 58 - 1;
-            drawSlot(g, x, y);
+            var slot = menu.slots.get(i);
+            drawSlot(g, leftPos + slot.x - 1, topPos + slot.y - 1);
         }
     }
 
@@ -406,8 +612,9 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
         for (int i = 0; i < menu.getFilterSlots(); i++) {
             FluidStack fs = menu.getFluidFilter(i);
             if (!fs.isEmpty()) {
-                int x = leftPos + FILTER_GRID_X + (i % 9) * FILTER_SLOT_SIZE + 1;
-                int y = topPos + FILTER_GRID_Y + (i / 9) * FILTER_SLOT_SIZE + 1;
+                var slot = menu.slots.get(i);
+                int x = leftPos + slot.x;
+                int y = topPos + slot.y;
                 renderFluidStack(g, fs, x, y);
             }
         }
@@ -445,7 +652,7 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     }
 
     private boolean isHovering(int x, int y, int w, int h, int mx, int my) {
-        return mx >= x && mx <= x + w && my >= y && my <= y + h;
+        return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
     @Override
@@ -457,6 +664,8 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
             handled = handleModClick(mx, my, btn);
         else if (menu.isNbtMode())
             handled = handleNbtClick(mx, my, btn);
+        else if (menu.isSlotMode())
+            handled = handleSlotClick(mx, my, btn);
         else if (menu.isAmountMode())
             handled = handleAmountClick(mx, my, btn);
         else if (menu.isDurabilityMode())
@@ -479,17 +688,19 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     }
 
     private boolean handleTagClick(double mx, double my, int btn) {
-        int x = leftPos + 28;
-        int y = topPos + 40;
+        int x = getSelectorInputX();
+        int y = getSelectorInputY();
+        int w = getSelectorInputWidth();
+        int arrowX = getSelectorArrowX();
 
-        if (isHovering(x + 120 + 8, y, 12, 14, (int) mx, (int) my)) {
+        if (isHovering(arrowX, y, 12, 14, (int) mx, (int) my)) {
             isDropdownOpen = !isDropdownOpen;
             listScrollOffset = 0;
             return true;
         }
 
         if (isDropdownOpen) {
-            if (isHovering(x, y + 16, 120, DROPDOWN_ROWS * LIST_ROW_H, (int) mx, (int) my)) {
+            if (isHovering(x, y + 16, w, DROPDOWN_ROWS * LIST_ROW_H, (int) mx, (int) my)) {
                 int row = ((int) my - (y + 16)) / LIST_ROW_H;
                 int idx = listScrollOffset + row;
                 if (idx >= 0 && idx < cachedTags.size()) {
@@ -502,9 +713,10 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
                 }
             }
         }
-        if (btn == 1 && isHovering(x, y, 120, 14, (int) mx, (int) my)) {
+        if (btn == 1 && isHovering(x, y, w, 14, (int) mx, (int) my)) {
+            String toRemove = menu.getSelectedTag();
             menu.setSelectedTag(null);
-            sendTagUpdate(null);
+            sendTagRemove(toRemove);
             manualInputBox.setValue("");
             return true;
         }
@@ -513,17 +725,19 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     }
 
     private boolean handleModClick(double mx, double my, int btn) {
-        int x = leftPos + 28;
-        int y = topPos + 40;
+        int x = getSelectorInputX();
+        int y = getSelectorInputY();
+        int w = getSelectorInputWidth();
+        int arrowX = getSelectorArrowX();
 
-        if (isHovering(x + 120 + 8, y, 12, 14, (int) mx, (int) my)) {
+        if (isHovering(arrowX, y, 12, 14, (int) mx, (int) my)) {
             isDropdownOpen = !isDropdownOpen;
             listScrollOffset = 0;
             return true;
         }
 
         if (isDropdownOpen) {
-            if (isHovering(x, y + 16, 120, DROPDOWN_ROWS * LIST_ROW_H, (int) mx, (int) my)) {
+            if (isHovering(x, y + 16, w, DROPDOWN_ROWS * LIST_ROW_H, (int) mx, (int) my)) {
                 int row = ((int) my - (y + 16)) / LIST_ROW_H;
                 int idx = listScrollOffset + row;
                 if (idx >= 0 && idx < cachedMods.size()) {
@@ -536,20 +750,32 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
                 }
             }
         }
+        if (btn == 1 && isHovering(x, y, w, 14, (int) mx, (int) my)) {
+            String toRemove = menu.getSelectedMod();
+            menu.setSelectedMod(null);
+            sendModRemove(toRemove);
+            manualInputBox.setValue("");
+            return true;
+        }
         return false;
     }
 
     private boolean handleNbtClick(double mx, double my, int btn) {
-        int x = leftPos + 28;
+        int x = getSelectorInputX();
         int y = topPos + 30;
+        int w = getSelectorInputWidth();
+        int arrowX = getSelectorArrowX();
 
-        if (isHovering(x, y, 120 + 10, 14, (int) mx, (int) my)) {
+        if (isHovering(x, y, w + 12, 14, (int) mx, (int) my)) {
             isDropdownOpen = !isDropdownOpen;
+            if (isDropdownOpen) {
+                listScrollOffset = 0;
+            }
             return true;
         }
 
         if (isDropdownOpen) {
-            if (isHovering(x, y + 16, 120, DROPDOWN_ROWS * LIST_ROW_H, (int) mx, (int) my)) {
+            if (isHovering(x, y + 16, w, DROPDOWN_ROWS * LIST_ROW_H, (int) mx, (int) my)) {
                 int row = ((int) my - (y + 16)) / LIST_ROW_H;
                 int idx = listScrollOffset + row;
                 if (idx >= 0 && idx < cachedNbtEntries.size()) {
@@ -567,6 +793,42 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
 
     private boolean handleAmountClick(double mx, double my, int btn) {
         int cx = leftPos + GUI_WIDTH / 2;
+        int infoBtnX = leftPos + imageWidth - 8 - 12;
+        int infoBtnY = topPos + 6;
+        int infoBtnSize = 12;
+
+        if (isHovering(infoBtnX, infoBtnY, infoBtnSize, infoBtnSize, (int) mx, (int) my)) {
+            amountInfoOpen = !amountInfoOpen;
+            return true;
+        }
+
+        if (amountInfoOpen) {
+            int x = leftPos + 8;
+            int y = topPos + 16;
+            int w = imageWidth - 16;
+            int maxBottom = topPos + menu.getPlayerInventoryY() - 14;
+            int h = Math.max(68, maxBottom - y);
+            if (y + h > maxBottom) {
+                h = Math.max(40, maxBottom - y);
+            }
+            int navY = y + h - 16;
+            int prevX = x + w - 40;
+            int nextX = x + w - 22;
+
+            if (isHovering(prevX, navY, 14, 12, (int) mx, (int) my) && amountInfoPage > 0) {
+                amountInfoPage--;
+                return true;
+            }
+            if (isHovering(nextX, navY, 14, 12, (int) mx, (int) my) && amountInfoPage < 1) {
+                amountInfoPage++;
+                return true;
+            }
+
+            if (isHovering(x, y, w, h, (int) mx, (int) my)) {
+                return true;
+            }
+        }
+
         int cy = topPos + 40 + 15;
 
         if (checkAmountBtn(mx, my, cx - 70, cy, -64))
@@ -581,6 +843,66 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
             return true;
         if (checkAmountBtn(mx, my, cx + 70, cy, 64))
             return true;
+
+        return false;
+    }
+
+    private boolean handleSlotClick(double mx, double my, int btn) {
+        int contentX = leftPos + 8;
+        int contentW = imageWidth - 16;
+        int modeY = topPos + 18;
+        int modeBtnW = 64;
+        int modeBtnH = 14;
+        int modeBtnX = leftPos + imageWidth - 8 - modeBtnW;
+        int inputY = topPos + 34;
+        int infoBtnX = leftPos + imageWidth - 8 - 12;
+        int infoBtnY = topPos + 6;
+        int infoBtnSize = 12;
+
+        if (isHovering(infoBtnX, infoBtnY, infoBtnSize, infoBtnSize, (int) mx, (int) my)) {
+            slotInfoOpen = !slotInfoOpen;
+            return true;
+        }
+
+        if (slotInfoOpen) {
+            int x = leftPos + 8;
+            int y = topPos + 16;
+            int w = imageWidth - 16;
+            int maxBottom = topPos + menu.getPlayerInventoryY() - 14;
+            int h = Math.max(68, maxBottom - y);
+            if (y + h > maxBottom) {
+                h = Math.max(40, maxBottom - y);
+            }
+            int navY = y + h - 16;
+            int prevX = x + w - 40;
+            int nextX = x + w - 22;
+
+            if (isHovering(prevX, navY, 14, 12, (int) mx, (int) my) && slotInfoPage > 0) {
+                slotInfoPage--;
+                return true;
+            }
+            if (isHovering(nextX, navY, 14, 12, (int) mx, (int) my) && slotInfoPage < 1) {
+                slotInfoPage++;
+                return true;
+            }
+
+            if (isHovering(x, y, w, h, (int) mx, (int) my)) {
+                return true;
+            }
+        }
+
+        if (isHovering(modeBtnX, modeY, modeBtnW, modeBtnH, (int) mx, (int) my)) {
+            if (minecraft != null && minecraft.gameMode != null) {
+                minecraft.gameMode.handleInventoryButtonClick(menu.containerId, 0);
+            }
+            return true;
+        }
+
+        if (btn == 1 && isHovering(contentX, inputY, contentW, 14, (int) mx, (int) my)) {
+            manualInputBox.setValue("");
+            sendSlotUpdate("");
+            return true;
+        }
 
         return false;
     }
@@ -623,11 +945,23 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     }
 
     private void sendTagUpdate(String tag) {
-        PacketDistributor.sendToServer(new ModifyFilterTagPayload(tag, tag == null));
+        menu.setSelectedTag(tag == null || tag.isBlank() ? null : tag.trim());
+        PacketDistributor.sendToServer(new ModifyFilterTagPayload(tag == null ? "" : tag, false));
+    }
+
+    private void sendTagRemove(String tag) {
+        menu.setSelectedTag(null);
+        PacketDistributor.sendToServer(new ModifyFilterTagPayload(tag == null ? "" : tag, true));
     }
 
     private void sendModUpdate(String mod) {
-        PacketDistributor.sendToServer(new ModifyFilterModPayload(mod, mod == null));
+        menu.setSelectedMod(mod == null || mod.isBlank() ? null : mod.trim());
+        PacketDistributor.sendToServer(new ModifyFilterModPayload(mod == null ? "" : mod, false));
+    }
+
+    private void sendModRemove(String mod) {
+        menu.setSelectedMod(null);
+        PacketDistributor.sendToServer(new ModifyFilterModPayload(mod == null ? "" : mod, true));
     }
 
     private void sendNbtUpdate(String path) {
@@ -642,15 +976,62 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
         PacketDistributor.sendToServer(new SetDurabilityFilterValuePayload(val));
     }
 
+    private void sendSlotUpdate(String expression) {
+        PacketDistributor.sendToServer(new SetSlotFilterSlotsPayload(expression == null ? "" : expression));
+    }
+
+    private void flushManualInputToServer() {
+        if (flushedTextOnClose || manualInputBox == null || !manualInputBox.isVisible()) {
+            return;
+        }
+        flushedTextOnClose = true;
+        commitManualInput();
+    }
+
+    private void commitManualInput() {
+        if (manualInputBox == null || !manualInputBox.isVisible()) {
+            return;
+        }
+
+        String val = manualInputBox.getValue() == null ? "" : manualInputBox.getValue().trim();
+        if (menu.isTagMode()) {
+            if (val.isEmpty()) {
+                sendTagRemove(menu.getSelectedTag());
+            } else {
+                sendTagUpdate(val);
+            }
+        } else if (menu.isModMode()) {
+            if (val.isEmpty()) {
+                sendModRemove(menu.getSelectedMod());
+            } else {
+                sendModUpdate(val);
+            }
+        } else if (menu.isSlotMode()) {
+            sendSlotUpdate(val);
+        }
+    }
+
+    @Override
+    public void onClose() {
+        flushManualInputToServer();
+        super.onClose();
+    }
+
+    @Override
+    public void removed() {
+        flushManualInputToServer();
+        super.removed();
+    }
+
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
+        if (key == 256) {
+            return super.keyPressed(key, scan, modifiers);
+        }
+
         if (manualInputBox.isFocused()) {
             if (key == 257) {
-                String val = manualInputBox.getValue();
-                if (menu.isTagMode())
-                    sendTagUpdate(val);
-                else if (menu.isModMode())
-                    sendModUpdate(val);
+                commitManualInput();
                 manualInputBox.setFocused(false);
                 return true;
             }
@@ -679,21 +1060,32 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     }
 
     private void renderTagTooltip(GuiGraphics g, int mx, int my) {
-        if (isHovering(leftPos + 28 + 120 + 8, topPos + 40, 12, 14, mx, my)) {
+        if (isHovering(getSelectorArrowX(), getSelectorInputY(), 12, 14, mx, my)) {
             g.renderTooltip(font, Component.literal("Select from Extractor Item"), mx, my);
+            return;
+        }
+        var extractor = getExtractorRect();
+        if (extractor != null && isHovering(extractor[0], extractor[1], 18, 18, mx, my)) {
+            g.renderTooltip(font, Component.translatable("gui.logisticsnetworks.filter.selector_hint"), mx, my);
         }
     }
 
     private void renderModTooltip(GuiGraphics g, int mx, int my) {
-        if (isHovering(leftPos + 28 + 120 + 8, topPos + 40, 12, 14, mx, my)) {
+        if (isHovering(getSelectorArrowX(), getSelectorInputY(), 12, 14, mx, my)) {
             g.renderTooltip(font, Component.literal("Select from Extractor Item"), mx, my);
+            return;
+        }
+        var extractor = getExtractorRect();
+        if (extractor != null && isHovering(extractor[0], extractor[1], 18, 18, mx, my)) {
+            g.renderTooltip(font, Component.translatable("gui.logisticsnetworks.filter.selector_hint"), mx, my);
         }
     }
 
     private void renderFluidTooltip(GuiGraphics g, int mx, int my) {
         for (int i = 0; i < menu.getFilterSlots(); i++) {
-            int x = leftPos + FILTER_GRID_X + (i % 9) * FILTER_SLOT_SIZE;
-            int y = topPos + FILTER_GRID_Y + (i / 9) * FILTER_SLOT_SIZE;
+            var slot = menu.slots.get(i);
+            int x = leftPos + slot.x;
+            int y = topPos + slot.y;
             if (isHovering(x, y, 18, 18, mx, my)) {
                 FluidStack fs = menu.getFluidFilter(i);
                 if (!fs.isEmpty()) {
@@ -729,7 +1121,7 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
 
     public boolean supportsGhostIngredientTargets() {
         return !menu.isTagMode() && !menu.isModMode() && !menu.isNbtMode() && !menu.isAmountMode()
-                && !menu.isDurabilityMode();
+                && !menu.isDurabilityMode() && !menu.isSlotMode();
     }
 
     public int getGhostFilterSlotCount() {
@@ -737,17 +1129,20 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     }
 
     public Rect2i getGhostFilterSlotArea(int slotIndex) {
-        int row = slotIndex / 9;
-        int col = slotIndex % 9;
-        int x = leftPos + FILTER_GRID_X + col * FILTER_SLOT_SIZE;
-        int y = topPos + FILTER_GRID_Y + row * FILTER_SLOT_SIZE;
-        return new Rect2i(x, y, 16, 16);
+        if (slotIndex < 0 || slotIndex >= menu.getFilterSlots() || slotIndex >= menu.slots.size()) {
+            return new Rect2i(leftPos, topPos, 0, 0);
+        }
+        var slot = menu.slots.get(slotIndex);
+        return new Rect2i(leftPos + slot.x, topPos + slot.y, 16, 16);
     }
 
     public Rect2i getSelectorGhostArea() {
-        int x = leftPos + 8;
-        int y = topPos + 20 + 14;
-        return new Rect2i(x, y, 16, 16);
+        int extractorIndex = menu.getExtractorSlotIndex();
+        if (extractorIndex >= 0 && extractorIndex < menu.slots.size()) {
+            var slot = menu.slots.get(extractorIndex);
+            return new Rect2i(leftPos + slot.x, topPos + slot.y, 16, 16);
+        }
+        return new Rect2i(leftPos, topPos, 0, 0);
     }
 
     public void setGhostFluidFilterEntry(int slot, FluidStack stack) {
@@ -767,6 +1162,50 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     public void setSelectorGhostItem(ItemStack stack) {
         if (menu.getExtractorSlotIndex() >= 0) {
             menu.slots.get(menu.getExtractorSlotIndex()).set(stack.copyWithCount(1));
+        }
+    }
+
+    private int getSelectorInputX() {
+        int extractorIndex = menu.getExtractorSlotIndex();
+        if (extractorIndex >= 0 && extractorIndex < menu.slots.size()) {
+            return leftPos + menu.slots.get(extractorIndex).x + 20;
+        }
+        return leftPos + 28;
+    }
+
+    private int getSelectorInputY() {
+        return topPos + 40;
+    }
+
+    private int getSelectorInputWidth() {
+        int x = getSelectorInputX();
+        int w = (leftPos + imageWidth - 20) - x;
+        return Math.max(80, w);
+    }
+
+    private int getSelectorArrowX() {
+        return getSelectorInputX() + getSelectorInputWidth() + 4;
+    }
+
+    private int[] getExtractorRect() {
+        int extractorIndex = menu.getExtractorSlotIndex();
+        if (extractorIndex < 0 || extractorIndex >= menu.slots.size()) {
+            return null;
+        }
+        var slot = menu.slots.get(extractorIndex);
+        return new int[] { leftPos + slot.x - 1, topPos + slot.y - 1 };
+    }
+
+    private void renderExtractorSlotTarget(GuiGraphics g, int mx, int my) {
+        int[] rect = getExtractorRect();
+        if (rect == null) {
+            return;
+        }
+        int x = rect[0];
+        int y = rect[1];
+        drawSlot(g, x, y);
+        if (isHovering(x, y, 18, 18, mx, my)) {
+            g.fill(x, y, x + 18, y + 18, COL_HOVER);
         }
     }
 }

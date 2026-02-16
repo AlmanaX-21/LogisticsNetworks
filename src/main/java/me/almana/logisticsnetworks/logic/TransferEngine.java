@@ -6,6 +6,7 @@ import me.almana.logisticsnetworks.data.*;
 import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
 import me.almana.logisticsnetworks.filter.AmountFilterData;
 import me.almana.logisticsnetworks.filter.NbtFilterData;
+import me.almana.logisticsnetworks.filter.SlotFilterData;
 import me.almana.logisticsnetworks.registration.ModTags;
 import me.almana.logisticsnetworks.upgrade.NodeUpgradeData;
 import net.minecraft.core.BlockPos;
@@ -14,6 +15,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -21,6 +23,7 @@ import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import org.slf4j.Logger;
 
@@ -35,6 +38,11 @@ public class TransferEngine {
     private static final float BACKOFF_MAX_TICKS_ENERGY = 5f;
 
     private record ImportTarget(LogisticsNodeEntity node, ChannelData channel, int channelIndex) {
+    }
+
+    private record ItemTransferTarget(IItemHandler handler, ItemStack[] importFilters,
+            FilterMode importFilterMode, AmountConstraints constraints, boolean hasItemNbtFilter,
+            boolean[] allowedSlots) {
     }
 
     private record AmountConstraints(boolean hasExportThreshold, int exportThreshold,
@@ -302,6 +310,9 @@ public class TransferEngine {
 
         boolean sourceDimensional = dimensionalCache.getOrDefault(sourceNode.getUUID(), false);
         boolean anyReachable = false;
+        List<ItemTransferTarget> reachableTargets = new ArrayList<>(targets.size());
+        ItemStack[] exportFilters = exportChannel.getFilterItems();
+        boolean[] sourceAllowedSlots = buildSlotAccessMask(sourceHandler, exportFilters);
 
         for (ImportTarget target : targets) {
             if (target.node.getUUID().equals(sourceNode.getUUID()))
@@ -322,14 +333,30 @@ public class TransferEngine {
             if (targetHandler == null)
                 continue;
 
-            if (executeMove(sourceHandler, targetHandler, batchLimit,
-                    exportChannel.getFilterItems(), exportChannel.getFilterMode(),
-                    target.channel.getFilterItems(), target.channel.getFilterMode(),
-                    sourceLevel.registryAccess())) {
-                return 1;
+            ItemStack[] importFilters = target.channel.getFilterItems();
+            boolean[] targetAllowedSlots = buildSlotAccessMask(targetHandler, importFilters);
+            if (targetAllowedSlots != null && !hasAnyAllowedSlots(targetAllowedSlots)) {
+                continue;
             }
+
+            reachableTargets.add(new ItemTransferTarget(
+                    targetHandler,
+                    importFilters,
+                    target.channel.getFilterMode(),
+                    collectAmountConstraints(exportFilters, importFilters),
+                    FilterLogic.hasConfiguredItemNbtFilter(importFilters),
+                    targetAllowedSlots));
         }
-        return anyReachable ? 0 : -1;
+        if (!anyReachable)
+            return -1;
+        if (reachableTargets.isEmpty())
+            return 0;
+
+        int moved = executeMove(sourceHandler, reachableTargets, batchLimit,
+                exportFilters, exportChannel.getFilterMode(),
+                sourceAllowedSlots,
+                sourceLevel.registryAccess());
+        return moved > 0 ? 1 : 0;
     }
 
     private static int transferFluids(LogisticsNodeEntity sourceNode, ServerLevel sourceLevel,
@@ -430,52 +457,238 @@ public class TransferEngine {
         return sourceDim && dimCache.getOrDefault(target.getUUID(), false);
     }
 
-    private static boolean executeMove(IItemHandler source, IItemHandler target, int limit,
+    private static int executeMove(IItemHandler source, List<ItemTransferTarget> targets, int limit,
             ItemStack[] exportFilters, FilterMode exportFilterMode,
-            ItemStack[] importFilters, FilterMode importFilterMode,
+            boolean[] sourceAllowedSlots,
             HolderLookup.Provider provider) {
 
         int remaining = limit;
-        boolean movedAny = false;
-        AmountConstraints amountConstraints = collectAmountConstraints(exportFilters, importFilters);
-        boolean hasNbtFilter = FilterLogic.hasConfiguredItemNbtFilter(exportFilters)
-                || FilterLogic.hasConfiguredItemNbtFilter(importFilters);
-
-        for (int slot = 0; slot < source.getSlots() && remaining > 0; slot++) {
-            ItemStack extracted = source.extractItem(slot, remaining, true);
-            if (extracted.isEmpty())
-                continue;
-            if (extracted.is(ModTags.RESOURCE_BLACKLIST_ITEMS))
-                continue;
-
-            CompoundTag candidateComponents = (provider != null && hasNbtFilter)
-                    ? NbtFilterData.getSerializedComponents(extracted, provider)
-                    : null;
-
-            if (provider != null) {
-                if (!FilterLogic.matchesItem(exportFilters, exportFilterMode, extracted, provider, candidateComponents))
-                    continue;
-                if (!FilterLogic.matchesItem(importFilters, importFilterMode, extracted, provider, candidateComponents))
-                    continue;
-            }
-
-            int allowedByAmount = getAllowedTransferByAmountConstraints(source, target, extracted, amountConstraints);
-            if (allowedByAmount <= 0)
-                continue;
-
-            int allowed = Math.min(extracted.getCount(), Math.min(remaining, allowedByAmount));
-            ItemStack capped = extracted.copyWithCount(allowed);
-            ItemStack leftover = ItemHandlerHelper.insertItemStacked(target, capped, true);
-            int accepted = capped.getCount() - leftover.getCount();
-
-            if (accepted > 0) {
-                ItemStack toMove = source.extractItem(slot, accepted, false);
-                ItemHandlerHelper.insertItemStacked(target, toMove, false);
-                remaining -= accepted;
-                movedAny = true;
+        boolean hasExportNbtFilter = FilterLogic.hasConfiguredItemNbtFilter(exportFilters);
+        boolean hasAnyImportNbtFilter = false;
+        for (ItemTransferTarget target : targets) {
+            if (target.hasItemNbtFilter()) {
+                hasAnyImportNbtFilter = true;
+                break;
             }
         }
-        return movedAny;
+        boolean hasNbtFilter = hasExportNbtFilter || hasAnyImportNbtFilter;
+
+        // Build amount constraint caches to avoid repeated full-inventory scans
+        boolean anyAmountConstraints = false;
+        for (ItemTransferTarget t : targets) {
+            if (t.constraints().hasExportThreshold || t.constraints().hasImportThreshold) {
+                anyAmountConstraints = true;
+                break;
+            }
+        }
+        Map<Item, Integer> sourceItemCounts = anyAmountConstraints ? buildItemCountCache(source) : null;
+        List<Map<Item, Integer>> targetItemCounts = null;
+        if (anyAmountConstraints) {
+            targetItemCounts = new ArrayList<>(targets.size());
+            for (ItemTransferTarget t : targets) {
+                targetItemCounts.add(
+                        t.constraints().hasImportThreshold ? buildItemCountCache(t.handler()) : null);
+            }
+        }
+
+        for (int slot = 0; slot < source.getSlots() && remaining > 0; slot++) {
+            if (sourceAllowedSlots != null && (slot >= sourceAllowedSlots.length || !sourceAllowedSlots[slot])) {
+                continue;
+            }
+            boolean[] blockedTargets = new boolean[targets.size()];
+            int openTargets = targets.size();
+
+            while (remaining > 0) {
+                ItemStack extracted = source.extractItem(slot, remaining, true);
+                if (extracted.isEmpty())
+                    break;
+                if (extracted.is(ModTags.RESOURCE_BLACKLIST_ITEMS))
+                    break;
+
+                CompoundTag candidateComponents = (provider != null && hasNbtFilter)
+                        ? NbtFilterData.getSerializedComponents(extracted, provider)
+                        : null;
+
+                if (provider != null) {
+                    if (!FilterLogic.matchesItem(exportFilters, exportFilterMode, extracted, provider, candidateComponents))
+                        break;
+                }
+
+                int slotRemaining = Math.min(extracted.getCount(), remaining);
+                boolean movedFromSlot = false;
+
+                for (int targetIndex = 0; targetIndex < targets.size(); targetIndex++) {
+                    if (blockedTargets[targetIndex]) {
+                        continue;
+                    }
+                    ItemTransferTarget target = targets.get(targetIndex);
+                    if (remaining <= 0 || slotRemaining <= 0)
+                        break;
+
+                    if (provider != null && !FilterLogic.matchesItem(target.importFilters(), target.importFilterMode(),
+                            extracted, provider, candidateComponents)) {
+                        continue;
+                    }
+
+                    int allowedByAmount;
+                    if (!anyAmountConstraints
+                            || (!target.constraints().hasExportThreshold && !target.constraints().hasImportThreshold)) {
+                        allowedByAmount = extracted.getCount();
+                    } else {
+                        allowedByAmount = getAllowedTransferCached(extracted, target.constraints(),
+                                sourceItemCounts, targetItemCounts.get(targetIndex));
+                    }
+                    if (allowedByAmount <= 0)
+                        continue;
+
+                    int allowed = Math.min(slotRemaining, allowedByAmount);
+                    if (allowed <= 0)
+                        continue;
+
+                    ItemStack toMove = source.extractItem(slot, allowed, false);
+                    if (toMove.isEmpty())
+                        break;
+
+                    ItemStack uninserted = insertItemWithAllowedSlots(target.handler(), toMove, false,
+                            target.allowedSlots());
+                    int moved = toMove.getCount() - uninserted.getCount();
+                    if (!uninserted.isEmpty()) {
+                        source.insertItem(slot, uninserted, false);
+                    }
+                    if (moved <= 0) {
+                        blockedTargets[targetIndex] = true;
+                        openTargets--;
+                        continue;
+                    }
+
+                    movedFromSlot = true;
+                    remaining -= moved;
+                    slotRemaining -= moved;
+
+                    // Update amount constraint caches incrementally
+                    if (anyAmountConstraints) {
+                        Item movedItem = extracted.getItem();
+                        if (sourceItemCounts != null) {
+                            sourceItemCounts.merge(movedItem, -moved, Integer::sum);
+                        }
+                        Map<Item, Integer> tgtCache = targetItemCounts.get(targetIndex);
+                        if (tgtCache != null) {
+                            tgtCache.merge(movedItem, moved, Integer::sum);
+                        }
+                    }
+                }
+
+                if (!movedFromSlot || openTargets <= 0) {
+                    break;
+                }
+            }
+        }
+        return limit - remaining;
+    }
+
+    private static ItemStack insertItemWithAllowedSlots(IItemHandler handler, ItemStack stack, boolean simulate,
+            boolean[] allowedSlots) {
+        if (stack.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        if (allowedSlots == null) {
+            return ItemHandlerHelper.insertItemStacked(handler, stack, simulate);
+        }
+        if (handler instanceof IItemHandlerModifiable modifiable) {
+            return insertItemStrictAllowedSlots(modifiable, stack, simulate, allowedSlots);
+        }
+
+        ItemStack remaining = stack.copy();
+
+        // First pass: merge into matching non-empty stacks.
+        for (int slot = 0; slot < handler.getSlots() && !remaining.isEmpty(); slot++) {
+            if (slot >= allowedSlots.length || !allowedSlots[slot]) {
+                continue;
+            }
+            ItemStack slotStack = handler.getStackInSlot(slot);
+            if (slotStack.isEmpty()) {
+                continue;
+            }
+            if (!ItemStack.isSameItemSameComponents(slotStack, remaining)) {
+                continue;
+            }
+            remaining = handler.insertItem(slot, remaining, simulate);
+        }
+
+        // Second pass: fill empty slots.
+        for (int slot = 0; slot < handler.getSlots() && !remaining.isEmpty(); slot++) {
+            if (slot >= allowedSlots.length || !allowedSlots[slot]) {
+                continue;
+            }
+            ItemStack slotStack = handler.getStackInSlot(slot);
+            if (!slotStack.isEmpty()) {
+                continue;
+            }
+            remaining = handler.insertItem(slot, remaining, simulate);
+        }
+
+        return remaining;
+    }
+
+    private static ItemStack insertItemStrictAllowedSlots(IItemHandlerModifiable handler, ItemStack stack,
+            boolean simulate, boolean[] allowedSlots) {
+        ItemStack remaining = stack.copy();
+
+        for (int pass = 0; pass < 2 && !remaining.isEmpty(); pass++) {
+            boolean mergePass = pass == 0;
+
+            for (int slot = 0; slot < handler.getSlots() && !remaining.isEmpty(); slot++) {
+                if (slot >= allowedSlots.length || !allowedSlots[slot]) {
+                    continue;
+                }
+
+                ItemStack slotStack = handler.getStackInSlot(slot);
+                boolean slotEmpty = slotStack.isEmpty();
+
+                if (mergePass && slotEmpty) {
+                    continue;
+                }
+                if (!mergePass && !slotEmpty) {
+                    continue;
+                }
+                if (!slotEmpty && !ItemStack.isSameItemSameComponents(slotStack, remaining)) {
+                    continue;
+                }
+                if (!handler.isItemValid(slot, remaining)) {
+                    continue;
+                }
+
+                int slotLimit = Math.min(handler.getSlotLimit(slot), remaining.getMaxStackSize());
+                if (!slotEmpty) {
+                    slotLimit = Math.min(slotLimit, slotStack.getMaxStackSize());
+                }
+
+                int currentCount = slotEmpty ? 0 : slotStack.getCount();
+                int space = slotLimit - currentCount;
+                if (space <= 0) {
+                    continue;
+                }
+
+                int toInsert = Math.min(space, remaining.getCount());
+                if (toInsert <= 0) {
+                    continue;
+                }
+
+                if (!simulate) {
+                    if (slotEmpty) {
+                        handler.setStackInSlot(slot, remaining.copyWithCount(toInsert));
+                    } else {
+                        ItemStack updated = slotStack.copy();
+                        updated.grow(toInsert);
+                        handler.setStackInSlot(slot, updated);
+                    }
+                }
+
+                remaining.shrink(toInsert);
+            }
+        }
+
+        return remaining;
     }
 
     private static boolean executeFluidMove(IFluidHandler source, IFluidHandler target, int limitMb,
@@ -602,6 +815,40 @@ public class TransferEngine {
         return new AmountConstraints(hasExportThreshold, exportThreshold, hasImportThreshold, importThreshold);
     }
 
+    private static Map<Item, Integer> buildItemCountCache(IItemHandler handler) {
+        Map<Item, Integer> counts = new HashMap<>();
+        for (int i = 0; i < handler.getSlots(); i++) {
+            ItemStack stack = handler.getStackInSlot(i);
+            if (!stack.isEmpty()) {
+                counts.merge(stack.getItem(), stack.getCount(), Integer::sum);
+            }
+        }
+        return counts;
+    }
+
+    private static int getAllowedTransferCached(ItemStack candidate, AmountConstraints constraints,
+            Map<Item, Integer> sourceCounts, Map<Item, Integer> targetCounts) {
+        int allowed = Integer.MAX_VALUE;
+
+        if (constraints.hasExportThreshold) {
+            int sourceCount = sourceCounts != null ? sourceCounts.getOrDefault(candidate.getItem(), 0) : 0;
+            int exportCap = sourceCount - constraints.exportThreshold;
+            if (exportCap <= 0)
+                return 0;
+            allowed = Math.min(allowed, exportCap);
+        }
+
+        if (constraints.hasImportThreshold) {
+            int targetCount = targetCounts != null ? targetCounts.getOrDefault(candidate.getItem(), 0) : 0;
+            int importCap = constraints.importThreshold - targetCount;
+            if (importCap <= 0)
+                return 0;
+            allowed = Math.min(allowed, importCap);
+        }
+
+        return allowed == Integer.MAX_VALUE ? candidate.getCount() : Math.max(0, allowed);
+    }
+
     private static int getAllowedTransferByAmountConstraints(IItemHandler source, IItemHandler target,
             ItemStack candidate, AmountConstraints constraints) {
         int allowed = Integer.MAX_VALUE;
@@ -668,5 +915,77 @@ public class TransferEngine {
             }
         }
         return amount;
+    }
+
+    private static boolean[] buildSlotAccessMask(IItemHandler handler, ItemStack[] filters) {
+        if (handler == null || filters == null || filters.length == 0) {
+            return null;
+        }
+
+        int slotCount = handler.getSlots();
+        if (slotCount <= 0) {
+            return null;
+        }
+
+        boolean[] allowed = new boolean[slotCount];
+        boolean[] blacklistMask = new boolean[slotCount];
+
+        boolean hasConfiguredSlotFilter = false;
+        boolean hasWhitelist = false;
+
+        for (ItemStack filter : filters) {
+            if (!SlotFilterData.isSlotFilterItem(filter) || !SlotFilterData.hasAnySlots(filter)) {
+                continue;
+            }
+
+            hasConfiguredSlotFilter = true;
+            List<Integer> slots = SlotFilterData.getSlots(filter);
+            if (slots.isEmpty()) {
+                continue;
+            }
+
+            if (SlotFilterData.isBlacklist(filter)) {
+                for (int slot : slots) {
+                    if (slot >= 0 && slot < slotCount) {
+                        blacklistMask[slot] = true;
+                    }
+                }
+            } else {
+                hasWhitelist = true;
+                for (int slot : slots) {
+                    if (slot >= 0 && slot < slotCount) {
+                        allowed[slot] = true;
+                    }
+                }
+            }
+        }
+
+        if (!hasConfiguredSlotFilter) {
+            return null;
+        }
+
+        if (!hasWhitelist) {
+            Arrays.fill(allowed, true);
+        }
+
+        for (int i = 0; i < slotCount; i++) {
+            if (blacklistMask[i]) {
+                allowed[i] = false;
+            }
+        }
+
+        return allowed;
+    }
+
+    private static boolean hasAnyAllowedSlots(boolean[] allowedSlots) {
+        if (allowedSlots == null) {
+            return true;
+        }
+        for (boolean allowed : allowedSlots) {
+            if (allowed) {
+                return true;
+            }
+        }
+        return false;
     }
 }

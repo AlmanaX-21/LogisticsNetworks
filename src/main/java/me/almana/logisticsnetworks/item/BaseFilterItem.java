@@ -52,6 +52,7 @@ public class BaseFilterItem extends Item {
         for (int i = 0; i < 5; i++) {
             buf.writeBoolean(false);
         }
+        buf.writeBoolean(false);
     }
 
     @Override

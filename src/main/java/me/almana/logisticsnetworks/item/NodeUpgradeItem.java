@@ -41,7 +41,7 @@ public class NodeUpgradeItem extends Item {
         }
 
         private String formatCap(int cap) {
-                return (cap >= 9_999 || cap == Integer.MAX_VALUE)
+                return (cap == Integer.MAX_VALUE)
                                 ? Component.translatable("tooltip.logisticsnetworks.upgrade.unlimited").getString()
                                 : String.format("%,d", cap);
         }

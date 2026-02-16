@@ -14,7 +14,7 @@ public final class AmountFilterData {
 
     private static final int DEFAULT_AMOUNT = 64;
     private static final int MIN_AMOUNT = 0;
-    private static final int MAX_AMOUNT = 9_999;
+    private static final int MAX_AMOUNT = 10_000;
 
     private AmountFilterData() {
     }

@@ -37,7 +37,7 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
     private static final int BATCH_MIN = 1;
     private static final int BATCH_MAX = 1_000_000;
     private static final int DELAY_MIN = 1;
-    private static final int DELAY_MAX = 9_999;
+    private static final int DELAY_MAX = 10_000;
     private static final int PRIORITY_MIN = -99;
     private static final int PRIORITY_MAX = 99;
 
@@ -676,19 +676,19 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
 
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
+        if (key == 256) {
+            return super.keyPressed(key, scan, modifiers);
+        }
+
         if (editingRow != -1) {
-            if (key == 256)
-                stopNumericEdit(false);
-            else if (key == 257 || key == 335)
+            if (key == 257 || key == 335)
                 stopNumericEdit(true);
             else
                 numericEditBox.keyPressed(key, scan, modifiers);
             return true;
         }
         if (networkNameField != null && networkNameField.isFocused()) {
-            if (key == 256)
-                networkNameField.setFocused(false);
-            else if (key == 257 || key == 335)
+            if (key == 257 || key == 335)
                 networkNameField.setFocused(false);
             else
                 networkNameField.keyPressed(key, scan, modifiers);

@@ -1,6 +1,6 @@
 package me.almana.logisticsnetworks.item;
 
-import me.almana.logisticsnetworks.filter.DurabilityFilterData;
+import me.almana.logisticsnetworks.filter.SlotFilterData;
 import me.almana.logisticsnetworks.menu.FilterMenu;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -16,9 +16,9 @@ import net.minecraft.world.level.Level;
 
 import java.util.List;
 
-public class DurabilityFilterItem extends Item {
+public class SlotFilterItem extends Item {
 
-    public DurabilityFilterItem(Properties properties) {
+    public SlotFilterItem(Properties properties) {
         super(properties);
     }
 
@@ -34,9 +34,9 @@ public class DurabilityFilterItem extends Item {
                         buf.writeBoolean(false);
                         buf.writeBoolean(false);
                         buf.writeBoolean(false);
+                        buf.writeBoolean(false);
+                        buf.writeBoolean(false);
                         buf.writeBoolean(true);
-                        buf.writeBoolean(false);
-                        buf.writeBoolean(false);
                     });
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
@@ -44,16 +44,22 @@ public class DurabilityFilterItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        DurabilityFilterData.Operator operator = DurabilityFilterData.getOperator(stack);
-        int value = DurabilityFilterData.getValue(stack);
+        boolean blacklist = SlotFilterData.isBlacklist(stack);
+        String slots = SlotFilterData.getSlotExpression(stack);
+        if (slots.isBlank()) {
+            slots = Component.translatable("tooltip.logisticsnetworks.filter.slot.none").getString();
+        }
 
-        tooltip.add(Component.translatable("tooltip.logisticsnetworks.filter.durability.desc")
+        tooltip.add(Component.translatable("tooltip.logisticsnetworks.filter.slot.desc")
                 .withStyle(ChatFormatting.GRAY));
 
         tooltip.add(Component.translatable(
-                "tooltip.logisticsnetworks.filter.durability",
-                operator.symbol(),
-                value).withStyle(ChatFormatting.DARK_GRAY));
+                blacklist ? "tooltip.logisticsnetworks.filter.mode.blacklist"
+                        : "tooltip.logisticsnetworks.filter.mode.whitelist")
+                .withStyle(ChatFormatting.GRAY));
+
+        tooltip.add(Component.translatable("tooltip.logisticsnetworks.filter.slot.value", slots)
+                .withStyle(ChatFormatting.DARK_GRAY));
 
         tooltip.add(Component.translatable("tooltip.logisticsnetworks.filter.open_hint")
                 .withStyle(ChatFormatting.DARK_GRAY));

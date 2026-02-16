@@ -16,7 +16,7 @@ public final class DurabilityFilterData {
 
     private static final int DEFAULT_VALUE = 0;
     private static final int MIN_VALUE = 0;
-    private static final int MAX_VALUE = 9_999;
+    private static final int MAX_VALUE = 100;
     private static final Operator DEFAULT_OPERATOR = Operator.GREATER_OR_EQUAL;
 
     public enum Operator {

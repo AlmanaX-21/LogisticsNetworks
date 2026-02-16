@@ -36,6 +36,7 @@ public class NbtFilterItem extends Item {
                         buf.writeBoolean(true);
                         buf.writeBoolean(false);
                         buf.writeBoolean(false);
+                        buf.writeBoolean(false);
                     });
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
