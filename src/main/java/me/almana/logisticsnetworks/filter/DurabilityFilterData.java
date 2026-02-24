@@ -1,11 +1,11 @@
 package me.almana.logisticsnetworks.filter;
 
+import me.almana.logisticsnetworks.util.ItemDataUtil;
+
 import me.almana.logisticsnetworks.item.DurabilityFilterItem;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
 import org.jetbrains.annotations.Nullable;
 
 public final class DurabilityFilterData {
@@ -77,7 +77,7 @@ public final class DurabilityFilterData {
     public static void setBlacklist(ItemStack stack, boolean isBlacklist) {
         if (!isDurabilityFilterItem(stack))
             return;
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             if (isBlacklist) {
                 root.putBoolean(KEY_IS_BLACKLIST, true);
@@ -99,7 +99,7 @@ public final class DurabilityFilterData {
         if (!isDurabilityFilterItem(stack))
             return;
         FilterTargetType target = type == null ? FilterTargetType.ITEMS : type;
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             if (target == FilterTargetType.ITEMS) {
                 root.remove(KEY_TARGET_TYPE);
@@ -126,7 +126,7 @@ public final class DurabilityFilterData {
             return;
 
         int clamped = clamp(value);
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             if (clamped == DEFAULT_VALUE) {
                 root.remove(KEY_VALUE);
@@ -153,7 +153,7 @@ public final class DurabilityFilterData {
             return;
 
         Operator normalized = operator == null ? DEFAULT_OPERATOR : operator;
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             if (normalized == DEFAULT_OPERATOR) {
                 root.remove(KEY_OPERATOR);
@@ -193,7 +193,7 @@ public final class DurabilityFilterData {
     }
 
     private static CompoundTag getRootTag(ItemStack stack) {
-        return getRootTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag());
+        return getRootTag(ItemDataUtil.getCustomData(stack));
     }
 
     private static CompoundTag getRootTag(CompoundTag customTag) {
@@ -211,3 +211,6 @@ public final class DurabilityFilterData {
         }
     }
 }
+
+
+

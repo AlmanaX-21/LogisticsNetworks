@@ -7,11 +7,12 @@ import me.almana.logisticsnetworks.client.screen.FilterScreen;
 import me.almana.logisticsnetworks.client.screen.MassPlacementScreen;
 import me.almana.logisticsnetworks.client.screen.NodeScreen;
 import me.almana.logisticsnetworks.registration.Registration;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.EntityRenderersEvent;
-import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
+import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.EntityRenderersEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 @EventBusSubscriber(modid = Logisticsnetworks.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class ClientEventHandler {
@@ -22,11 +23,13 @@ public class ClientEventHandler {
     }
 
     @SubscribeEvent
-    public static void registerScreens(RegisterMenuScreensEvent event) {
-        event.register(Registration.NODE_MENU.get(), NodeScreen::new);
-        event.register(Registration.FILTER_MENU.get(), FilterScreen::new);
-        event.register(Registration.CLIPBOARD_MENU.get(), ClipboardScreen::new);
-        event.register(Registration.MASS_PLACEMENT_MENU.get(), MassPlacementScreen::new);
+    public static void registerScreens(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> {
+            MenuScreens.register(Registration.NODE_MENU.get(), NodeScreen::new);
+            MenuScreens.register(Registration.FILTER_MENU.get(), FilterScreen::new);
+            MenuScreens.register(Registration.CLIPBOARD_MENU.get(), ClipboardScreen::new);
+            MenuScreens.register(Registration.MASS_PLACEMENT_MENU.get(), MassPlacementScreen::new);
+        });
     }
 
     @SubscribeEvent
@@ -34,3 +37,4 @@ public class ClientEventHandler {
         event.registerLayerDefinition(NodeModel.LAYER_LOCATION, NodeModel::createBodyLayer);
     }
 }
+

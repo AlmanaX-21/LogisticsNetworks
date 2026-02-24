@@ -1,5 +1,7 @@
 package me.almana.logisticsnetworks.network;
 
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+
 import me.almana.logisticsnetworks.data.*;
 import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
 import me.almana.logisticsnetworks.filter.*;
@@ -19,8 +21,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.minecraftforge.fluids.FluidStack;
+import me.almana.logisticsnetworks.network.payload.IPayloadContext;
 import me.almana.logisticsnetworks.network.SetFilterChemicalEntryPayload;
 
 public class ServerPayloadHandler {
@@ -179,7 +181,7 @@ public class ServerPayloadHandler {
                 return;
             ChannelData channel = node.getChannel(payload.channelIndex());
             if (channel != null) {
-                channel.setFilterItem(payload.filterSlot(), payload.filterItem().copyWithCount(1));
+                channel.setFilterItem(payload.filterSlot(), ItemStackCompat.copyWithCount(payload.filterItem(), 1));
             }
         });
     }
@@ -194,7 +196,7 @@ public class ServerPayloadHandler {
                 return;
 
             channel.setFilterItem(payload.filterSlot(),
-                    payload.filterItem().is(ModTags.FILTERS) ? payload.filterItem().copyWithCount(1) : ItemStack.EMPTY);
+                    payload.filterItem().is(ModTags.FILTERS) ? ItemStackCompat.copyWithCount(payload.filterItem(), 1) : ItemStack.EMPTY);
             markNetworkDirty(node);
         });
     }
@@ -421,3 +423,7 @@ public class ServerPayloadHandler {
         };
     }
 }
+
+
+
+

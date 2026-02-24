@@ -1,5 +1,7 @@
 package me.almana.logisticsnetworks.menu;
 
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+
 import me.almana.logisticsnetworks.data.NodeClipboardConfig;
 import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
 import me.almana.logisticsnetworks.item.WrenchItem;
@@ -88,7 +90,7 @@ public class MassPlacementMenu extends AbstractContainerMenu {
             return List.of();
         }
 
-        NodeClipboardConfig clipboard = WrenchItem.getClipboard(wrenchStack, player.registryAccess());
+        NodeClipboardConfig clipboard = WrenchItem.getClipboard(wrenchStack, player.level().registryAccess());
         boolean clipboardPresent = clipboard != null && !clipboard.isEffectivelyEmpty();
         boolean clipboardValid = !clipboardPresent || clipboard.isStructurallyValid();
 
@@ -153,7 +155,7 @@ public class MassPlacementMenu extends AbstractContainerMenu {
         List<WrenchItem.MassSelectionTarget> validTargets = getValidTargets(selected);
         int nodeCount = validTargets.size();
 
-        NodeClipboardConfig clipboard = WrenchItem.getClipboard(wrenchStack, player.registryAccess());
+        NodeClipboardConfig clipboard = WrenchItem.getClipboard(wrenchStack, player.level().registryAccess());
         boolean clipboardPresent = clipboard != null && !clipboard.isEffectivelyEmpty();
         boolean clipboardValid = !clipboardPresent || clipboard.isStructurallyValid();
 
@@ -204,7 +206,7 @@ public class MassPlacementMenu extends AbstractContainerMenu {
             return false;
         }
 
-        NodeClipboardConfig clipboard = WrenchItem.getClipboard(wrenchStack, player.registryAccess());
+        NodeClipboardConfig clipboard = WrenchItem.getClipboard(wrenchStack, player.level().registryAccess());
         boolean clipboardPresent = clipboard != null && !clipboard.isEffectivelyEmpty();
         if (clipboardPresent && !clipboard.isStructurallyValid()) {
             player.displayClientMessage(Component.translatable("message.logisticsnetworks.clipboard.invalid"), true);
@@ -295,7 +297,7 @@ public class MassPlacementMenu extends AbstractContainerMenu {
             }
         }
 
-        requirements.add(new Requirement(stack.copyWithCount(1), count));
+        requirements.add(new Requirement(ItemStackCompat.copyWithCount(stack, 1), count));
     }
 
     private boolean hasInventoryRequirements(Inventory inventory, List<Requirement> requirements, int protectedSlot) {
@@ -378,3 +380,6 @@ public class MassPlacementMenu extends AbstractContainerMenu {
         }
     }
 }
+
+
+

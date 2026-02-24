@@ -1,5 +1,7 @@
 package me.almana.logisticsnetworks.menu;
 
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+
 import me.almana.logisticsnetworks.filter.*;
 import me.almana.logisticsnetworks.integration.mekanism.MekanismCompat;
 import me.almana.logisticsnetworks.item.*;
@@ -15,8 +17,8 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 
 public class FilterMenu extends AbstractContainerMenu {
 
@@ -546,7 +548,7 @@ public class FilterMenu extends AbstractContainerMenu {
         if (hasItem(stack))
             return false;
 
-        ItemStack itemEntry = stack.copyWithCount(1);
+        ItemStack itemEntry = ItemStackCompat.copyWithCount(stack, 1);
         updateFilter(slot, s -> {
             FilterItemData.setEntry(getOpenedStack(), s, itemEntry, player.level().registryAccess());
             isFluidSlot[s] = false;
@@ -685,7 +687,7 @@ public class FilterMenu extends AbstractContainerMenu {
             }
             String chemId = MekanismCompat.getChemicalIdFromItem(held);
             if (chemId != null) {
-                extractorInventory.setItem(0, held.copyWithCount(1));
+                extractorInventory.setItem(0, ItemStackCompat.copyWithCount(held, 1));
                 broadcastChanges();
                 return;
             }
@@ -700,12 +702,12 @@ public class FilterMenu extends AbstractContainerMenu {
 
         String chemId = MekanismCompat.getChemicalIdFromItem(held);
         if (chemId != null) {
-            extractorInventory.setItem(0, held.copyWithCount(1));
+            extractorInventory.setItem(0, ItemStackCompat.copyWithCount(held, 1));
             broadcastChanges();
             return;
         }
 
-        extractorInventory.setItem(0, held.copyWithCount(1));
+        extractorInventory.setItem(0, ItemStackCompat.copyWithCount(held, 1));
         broadcastChanges();
     }
 
@@ -881,3 +883,7 @@ public class FilterMenu extends AbstractContainerMenu {
         }
     }
 }
+
+
+
+

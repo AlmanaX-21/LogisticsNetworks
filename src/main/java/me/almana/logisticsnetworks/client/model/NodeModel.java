@@ -13,7 +13,7 @@ import net.minecraft.world.entity.Entity;
 public class NodeModel<T extends Entity> extends EntityModel<T> {
 
         public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(
-                        ResourceLocation.fromNamespaceAndPath(Logisticsnetworks.MOD_ID, "node"), "main");
+                        new ResourceLocation(Logisticsnetworks.MOD_ID, "node"), "main");
 
         private static final String MODEL_PATH = "/assets/logisticsnetworks/models/entity/node.json";
 
@@ -34,7 +34,8 @@ public class NodeModel<T extends Entity> extends EntityModel<T> {
 
         @Override
         public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
-                        int color) {
-                mainBody.render(poseStack, buffer, packedLight, packedOverlay, color);
+                        float red, float green, float blue, float alpha) {
+                mainBody.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         }
 }
+

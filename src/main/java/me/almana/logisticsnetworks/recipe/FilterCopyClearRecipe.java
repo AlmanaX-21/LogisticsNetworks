@@ -2,15 +2,16 @@ package me.almana.logisticsnetworks.recipe;
 
 import me.almana.logisticsnetworks.registration.ModTags;
 import me.almana.logisticsnetworks.registration.Registration;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponents;
+import me.almana.logisticsnetworks.util.ItemDataUtil;
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.crafting.CraftingBookCategory;
-import net.minecraft.world.item.crafting.CraftingInput;
+import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.crafting.CustomRecipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
@@ -27,17 +28,17 @@ public class FilterCopyClearRecipe extends CustomRecipe {
             "ln_durability_filter",
             "ln_nbt_filter");
 
-    public FilterCopyClearRecipe(CraftingBookCategory category) {
-        super(category);
+    public FilterCopyClearRecipe(ResourceLocation id, CraftingBookCategory category) {
+        super(id, category);
     }
 
     @Override
-    public boolean matches(CraftingInput input, Level level) {
+    public boolean matches(CraftingContainer input, Level level) {
         return !buildResult(input).isEmpty();
     }
 
     @Override
-    public ItemStack assemble(CraftingInput input, HolderLookup.Provider registries) {
+    public ItemStack assemble(CraftingContainer input, RegistryAccess registries) {
         return buildResult(input);
     }
 
@@ -56,13 +57,13 @@ public class FilterCopyClearRecipe extends CustomRecipe {
         return true;
     }
 
-    private static ItemStack buildResult(CraftingInput input) {
+    private static ItemStack buildResult(CraftingContainer input) {
         Item targetItem = null;
         ItemStack configuredSource = ItemStack.EMPTY;
         int configuredCount = 0;
         int filterCount = 0;
 
-        for (int i = 0; i < input.size(); i++) {
+        for (int i = 0; i < input.getContainerSize(); i++) {
             ItemStack stack = input.getItem(i);
             if (stack.isEmpty()) {
                 continue;
@@ -97,18 +98,18 @@ public class FilterCopyClearRecipe extends CustomRecipe {
         }
 
         if (configuredCount == 1) {
-            return configuredSource.copyWithCount(filterCount);
+            return ItemStackCompat.copyWithCount(configuredSource, filterCount);
         }
 
         return ItemStack.EMPTY;
     }
 
     private static boolean isConfiguredFilter(ItemStack stack) {
-        if (!stack.has(DataComponents.CUSTOM_DATA)) {
+        CompoundTag custom = ItemDataUtil.getCustomData(stack);
+        if (custom.isEmpty()) {
             return false;
         }
 
-        CompoundTag custom = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         for (String rootKey : FILTER_ROOT_KEYS) {
             if (custom.contains(rootKey, Tag.TAG_COMPOUND) && !custom.getCompound(rootKey).isEmpty()) {
                 return true;

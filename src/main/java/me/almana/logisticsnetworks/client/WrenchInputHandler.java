@@ -1,5 +1,7 @@
 package me.almana.logisticsnetworks.client;
 
+import me.almana.logisticsnetworks.network.NetworkHandler;
+
 import me.almana.logisticsnetworks.Logisticsnetworks;
 import me.almana.logisticsnetworks.network.CopyPasteConnectedPayload;
 import me.almana.logisticsnetworks.item.WrenchItem;
@@ -11,11 +13,10 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.client.event.InputEvent;
 import org.jetbrains.annotations.Nullable;
 
 @EventBusSubscriber(modid = Logisticsnetworks.MOD_ID, value = Dist.CLIENT)
@@ -33,7 +34,8 @@ public class WrenchInputHandler {
             return;
         }
 
-        if (event.getScrollDeltaY() == 0.0D) {
+        double scrollDelta = event.getScrollDelta();
+        if (scrollDelta == 0.0D) {
             return;
         }
 
@@ -42,7 +44,7 @@ public class WrenchInputHandler {
             return;
         }
 
-        PacketDistributor.sendToServer(new CycleWrenchModePayload(hand.ordinal(), event.getScrollDeltaY() > 0.0D));
+        NetworkHandler.sendToServer(new CycleWrenchModePayload(hand.ordinal(), scrollDelta > 0.0D));
         event.setCanceled(true);
     }
 
@@ -74,9 +76,9 @@ public class WrenchInputHandler {
         }
 
         if (mode == WrenchItem.Mode.MASS_PLACEMENT) {
-            PacketDistributor.sendToServer(new MassSelectConnectedPayload(hand.ordinal(), blockHitResult.getBlockPos()));
+            NetworkHandler.sendToServer(new MassSelectConnectedPayload(hand.ordinal(), blockHitResult.getBlockPos()));
         } else {
-            PacketDistributor.sendToServer(new CopyPasteConnectedPayload(hand.ordinal(), blockHitResult.getBlockPos()));
+            NetworkHandler.sendToServer(new CopyPasteConnectedPayload(hand.ordinal(), blockHitResult.getBlockPos()));
         }
         event.setSwingHand(false);
         event.setCanceled(true);
@@ -93,3 +95,4 @@ public class WrenchInputHandler {
         return null;
     }
 }
+

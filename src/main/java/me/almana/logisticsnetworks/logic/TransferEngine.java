@@ -1,5 +1,7 @@
 package me.almana.logisticsnetworks.logic;
 
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+
 import com.mojang.logging.LogUtils;
 import me.almana.logisticsnetworks.Config;
 import me.almana.logisticsnetworks.data.*;
@@ -16,6 +18,7 @@ import me.almana.logisticsnetworks.integration.mekanism.MekanismCompat;
 import me.almana.logisticsnetworks.registration.ModTags;
 import me.almana.logisticsnetworks.upgrade.NodeUpgradeData;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
@@ -23,14 +26,15 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.energy.IEnergyStorage;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
-import net.neoforged.neoforge.items.ItemHandlerHelper;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.energy.IEnergyStorage;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandlerModifiable;
+import net.minecraftforge.items.ItemHandlerHelper;
 import org.slf4j.Logger;
 
 import java.util.*;
@@ -339,8 +343,7 @@ public class TransferEngine {
         BlockPos sourcePos = sourceNode.getAttachedPos();
         if (!sourceLevel.isLoaded(sourcePos))
             return -1;
-        IItemHandler sourceHandler = sourceLevel.getCapability(Capabilities.ItemHandler.BLOCK, sourcePos,
-                exportChannel.getIoDirection());
+        IItemHandler sourceHandler = getItemHandler(sourceLevel, sourcePos, exportChannel.getIoDirection());
         if (sourceHandler == null)
             return -1;
 
@@ -364,8 +367,7 @@ public class TransferEngine {
             if (!targetLevel.isLoaded(targetPos))
                 continue;
 
-            IItemHandler targetHandler = targetLevel.getCapability(Capabilities.ItemHandler.BLOCK, targetPos,
-                    target.channel.getIoDirection());
+            IItemHandler targetHandler = getItemHandler(targetLevel, targetPos, target.channel.getIoDirection());
             if (targetHandler == null)
                 continue;
 
@@ -402,8 +404,7 @@ public class TransferEngine {
         BlockPos sourcePos = sourceNode.getAttachedPos();
         if (!sourceLevel.isLoaded(sourcePos))
             return -1;
-        IFluidHandler sourceHandler = sourceLevel.getCapability(Capabilities.FluidHandler.BLOCK, sourcePos,
-                exportChannel.getIoDirection());
+        IFluidHandler sourceHandler = getFluidHandler(sourceLevel, sourcePos, exportChannel.getIoDirection());
         if (sourceHandler == null)
             return -1;
 
@@ -424,8 +425,7 @@ public class TransferEngine {
             if (!targetLevel.isLoaded(targetPos))
                 continue;
 
-            IFluidHandler targetHandler = targetLevel.getCapability(Capabilities.FluidHandler.BLOCK, targetPos,
-                    target.channel.getIoDirection());
+            IFluidHandler targetHandler = getFluidHandler(targetLevel, targetPos, target.channel.getIoDirection());
             if (targetHandler == null)
                 continue;
 
@@ -446,8 +446,7 @@ public class TransferEngine {
         BlockPos sourcePos = sourceNode.getAttachedPos();
         if (!sourceLevel.isLoaded(sourcePos))
             return -1;
-        IEnergyStorage sourceHandler = sourceLevel.getCapability(Capabilities.EnergyStorage.BLOCK, sourcePos,
-                exportChannel.getIoDirection());
+        IEnergyStorage sourceHandler = getEnergyStorage(sourceLevel, sourcePos, exportChannel.getIoDirection());
         if (sourceHandler == null || !sourceHandler.canExtract())
             return -1;
 
@@ -471,8 +470,7 @@ public class TransferEngine {
             if (!targetLevel.isLoaded(targetPos))
                 continue;
 
-            IEnergyStorage targetHandler = targetLevel.getCapability(Capabilities.EnergyStorage.BLOCK, targetPos,
-                    target.channel.getIoDirection());
+            IEnergyStorage targetHandler = getEnergyStorage(targetLevel, targetPos, target.channel.getIoDirection());
             if (targetHandler == null || !targetHandler.canReceive())
                 continue;
 
@@ -755,7 +753,7 @@ public class TransferEngine {
             if (slotStack.isEmpty()) {
                 continue;
             }
-            if (!ItemStack.isSameItemSameComponents(slotStack, remaining)) {
+            if (!ItemStackCompat.isSameItemSameComponents(slotStack, remaining)) {
                 continue;
             }
             remaining = handler.insertItem(slot, remaining, simulate);
@@ -797,7 +795,7 @@ public class TransferEngine {
                 if (!mergePass && !slotEmpty) {
                     continue;
                 }
-                if (!slotEmpty && !ItemStack.isSameItemSameComponents(slotStack, remaining)) {
+                if (!slotEmpty && !ItemStackCompat.isSameItemSameComponents(slotStack, remaining)) {
                     continue;
                 }
                 if (!handler.isItemValid(slot, remaining)) {
@@ -822,7 +820,7 @@ public class TransferEngine {
 
                 if (!simulate) {
                     if (slotEmpty) {
-                        handler.setStackInSlot(slot, remaining.copyWithCount(toInsert));
+                        handler.setStackInSlot(slot, ItemStackCompat.copyWithCount(remaining, toInsert));
                     } else {
                         ItemStack updated = slotStack.copy();
                         updated.grow(toInsert);
@@ -854,7 +852,7 @@ public class TransferEngine {
                 continue;
 
             int requestFromTank = Math.min(remaining, tankFluid.getAmount());
-            FluidStack simulated = source.drain(tankFluid.copyWithAmount(requestFromTank),
+            FluidStack simulated = source.drain(fluidWithAmount(tankFluid, requestFromTank),
                     IFluidHandler.FluidAction.SIMULATE);
             if (simulated.isEmpty())
                 continue;
@@ -872,22 +870,22 @@ public class TransferEngine {
                 continue;
 
             int request = Math.min(simulated.getAmount(), Math.min(remaining, allowedByAmount));
-            int accepted = target.fill(simulated.copyWithAmount(request), IFluidHandler.FluidAction.SIMULATE);
+            int accepted = target.fill(fluidWithAmount(simulated, request), IFluidHandler.FluidAction.SIMULATE);
             if (accepted <= 0)
                 continue;
 
             int toMove = Math.min(accepted,
-                    source.drain(simulated.copyWithAmount(accepted), IFluidHandler.FluidAction.SIMULATE).getAmount());
+                    source.drain(fluidWithAmount(simulated, accepted), IFluidHandler.FluidAction.SIMULATE).getAmount());
             if (toMove <= 0)
                 continue;
 
-            FluidStack drained = source.drain(simulated.copyWithAmount(toMove), IFluidHandler.FluidAction.EXECUTE);
+            FluidStack drained = source.drain(fluidWithAmount(simulated, toMove), IFluidHandler.FluidAction.EXECUTE);
             if (drained.isEmpty())
                 continue;
 
             int filled = target.fill(drained, IFluidHandler.FluidAction.EXECUTE);
             if (filled < drained.getAmount()) {
-                source.fill(drained.copyWithAmount(drained.getAmount() - filled), IFluidHandler.FluidAction.EXECUTE);
+                source.fill(fluidWithAmount(drained, drained.getAmount() - filled), IFluidHandler.FluidAction.EXECUTE);
             }
 
             if (filled > 0) {
@@ -1022,7 +1020,7 @@ public class TransferEngine {
         int amount = 0;
         for (int i = 0; i < handler.getTanks(); i++) {
             FluidStack stack = handler.getFluidInTank(i);
-            if (!stack.isEmpty() && FluidStack.isSameFluidSameComponents(stack, candidate)) {
+            if (!stack.isEmpty() && stack.isFluidEqual(candidate)) {
                 amount += stack.getAmount();
             }
         }
@@ -1100,4 +1098,42 @@ public class TransferEngine {
         }
         return false;
     }
+
+    private static IItemHandler getItemHandler(ServerLevel level, BlockPos pos, Direction side) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (blockEntity == null) {
+            return null;
+        }
+        return blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER, side).orElse(null);
+    }
+
+    private static IFluidHandler getFluidHandler(ServerLevel level, BlockPos pos, Direction side) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (blockEntity == null) {
+            return null;
+        }
+        return blockEntity.getCapability(ForgeCapabilities.FLUID_HANDLER, side).orElse(null);
+    }
+
+    private static IEnergyStorage getEnergyStorage(ServerLevel level, BlockPos pos, Direction side) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (blockEntity == null) {
+            return null;
+        }
+        return blockEntity.getCapability(ForgeCapabilities.ENERGY, side).orElse(null);
+    }
+
+    private static FluidStack fluidWithAmount(FluidStack source, int amount) {
+        if (source == null || source.isEmpty()) {
+            return FluidStack.EMPTY;
+        }
+        FluidStack copy = source.copy();
+        copy.setAmount(Math.max(0, amount));
+        return copy;
+    }
 }
+
+
+
+
+

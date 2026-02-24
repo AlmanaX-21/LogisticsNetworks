@@ -1,5 +1,7 @@
 package me.almana.logisticsnetworks.menu;
 
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+
 import me.almana.logisticsnetworks.data.ChannelMode;
 import me.almana.logisticsnetworks.data.ChannelType;
 import me.almana.logisticsnetworks.data.DistributionMode;
@@ -82,7 +84,7 @@ public class ClipboardMenu extends AbstractContainerMenu {
         this.lockedSlot = hand == InteractionHand.MAIN_HAND ? playerInventory.selected : -1;
 
         ItemStack wrenchStack = getWrenchStack();
-        NodeClipboardConfig loaded = WrenchItem.getClipboard(wrenchStack, player.registryAccess());
+        NodeClipboardConfig loaded = WrenchItem.getClipboard(wrenchStack, player.level().registryAccess());
         this.clipboard = loaded == null ? NodeClipboardConfig.createEmpty() : loaded;
 
         layoutSlots(playerInventory);
@@ -268,7 +270,7 @@ public class ClipboardMenu extends AbstractContainerMenu {
     public void removed(Player player) {
         super.removed(player);
         if (!player.level().isClientSide) {
-            WrenchItem.setClipboard(getWrenchStack(), clipboard, player.registryAccess());
+            WrenchItem.setClipboard(getWrenchStack(), clipboard, player.level().registryAccess());
         }
     }
 
@@ -280,14 +282,14 @@ public class ClipboardMenu extends AbstractContainerMenu {
             if (carried.isEmpty()) {
                 clipboard.setFilterItem(selectedChannel, slotId, ItemStack.EMPTY);
             } else if (carried.is(ModTags.FILTERS)) {
-                clipboard.setFilterItem(selectedChannel, slotId, carried.copyWithCount(1));
+                clipboard.setFilterItem(selectedChannel, slotId, ItemStackCompat.copyWithCount(carried, 1));
             }
         } else {
             int upgradeSlot = slotId - FILTER_SLOTS;
             if (carried.isEmpty()) {
                 clipboard.setUpgradeItem(upgradeSlot, ItemStack.EMPTY);
             } else if (carried.is(ModTags.UPGRADES)) {
-                clipboard.setUpgradeItem(upgradeSlot, carried.copyWithCount(1));
+                clipboard.setUpgradeItem(upgradeSlot, ItemStackCompat.copyWithCount(carried, 1));
             }
         }
 
@@ -458,3 +460,6 @@ public class ClipboardMenu extends AbstractContainerMenu {
         }
     }
 }
+
+
+

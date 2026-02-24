@@ -1,10 +1,10 @@
 package me.almana.logisticsnetworks.network;
 
 import me.almana.logisticsnetworks.Logisticsnetworks;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import me.almana.logisticsnetworks.network.codec.RegistryFriendlyByteBuf;
+import me.almana.logisticsnetworks.network.codec.ByteBufCodecs;
+import me.almana.logisticsnetworks.network.codec.StreamCodec;
+import me.almana.logisticsnetworks.network.payload.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 public record SetFilterChemicalEntryPayload(
@@ -12,7 +12,7 @@ public record SetFilterChemicalEntryPayload(
         String chemicalId) implements CustomPacketPayload {
 
     public static final Type<SetFilterChemicalEntryPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(Logisticsnetworks.MOD_ID, "set_filter_chemical_entry"));
+            new ResourceLocation(Logisticsnetworks.MOD_ID, "set_filter_chemical_entry"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, SetFilterChemicalEntryPayload> STREAM_CODEC = StreamCodec
             .composite(
@@ -27,3 +27,4 @@ public record SetFilterChemicalEntryPayload(
         return TYPE;
     }
 }
+

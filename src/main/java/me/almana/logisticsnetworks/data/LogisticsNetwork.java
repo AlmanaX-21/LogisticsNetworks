@@ -16,7 +16,7 @@ import me.almana.logisticsnetworks.upgrade.NodeUpgradeData;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import net.minecraftforge.server.ServerLifecycleHooks;
 
 public class LogisticsNetwork {
 
@@ -281,3 +281,4 @@ public class LogisticsNetwork {
         }
     }
 }
+

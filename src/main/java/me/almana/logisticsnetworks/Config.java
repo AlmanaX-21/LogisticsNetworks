@@ -1,24 +1,24 @@
 package me.almana.logisticsnetworks;
 
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.event.config.ModConfigEvent;
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.minecraftforge.common.ForgeConfigSpec;
 
 @EventBusSubscriber(modid = Logisticsnetworks.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 public class Config {
 
-    private static final ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
+    private static final ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
-    private static final ModConfigSpec.BooleanValue dropNodeItemSpec = builder
+    private static final ForgeConfigSpec.BooleanValue dropNodeItemSpec = builder
             .comment("Whether nodes should drop their item when the attached block is broken.")
             .define("dropNodeItem", true);
 
-    private static final ModConfigSpec.BooleanValue debugModeSpec = builder
+    private static final ForgeConfigSpec.BooleanValue debugModeSpec = builder
             .comment("Enable debug overlays and diagnostic logging.")
             .define("debugMode", false);
 
-    static final ModConfigSpec SPEC = builder.build();
+    static final ForgeConfigSpec SPEC = builder.build();
 
     public static boolean dropNodeItem;
     public static boolean debugMode;
@@ -29,3 +29,4 @@ public class Config {
         debugMode = debugModeSpec.get();
     }
 }
+

@@ -9,9 +9,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.capabilities.Capabilities;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
 import java.util.List;
 
@@ -54,18 +55,21 @@ public final class NodePlacementHelper {
             return false;
         }
 
+        BlockEntity blockEntity = serverLevel.getBlockEntity(pos);
         Direction[] directions = { null, Direction.DOWN, Direction.UP, Direction.NORTH, Direction.SOUTH,
                 Direction.WEST, Direction.EAST };
 
-        for (Direction direction : directions) {
-            if (serverLevel.getCapability(Capabilities.ItemHandler.BLOCK, pos, direction) != null) {
-                return true;
-            }
-            if (serverLevel.getCapability(Capabilities.FluidHandler.BLOCK, pos, direction) != null) {
-                return true;
-            }
-            if (serverLevel.getCapability(Capabilities.EnergyStorage.BLOCK, pos, direction) != null) {
-                return true;
+        if (blockEntity != null) {
+            for (Direction direction : directions) {
+                if (blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER, direction).isPresent()) {
+                    return true;
+                }
+                if (blockEntity.getCapability(ForgeCapabilities.FLUID_HANDLER, direction).isPresent()) {
+                    return true;
+                }
+                if (blockEntity.getCapability(ForgeCapabilities.ENERGY, direction).isPresent()) {
+                    return true;
+                }
             }
         }
 
@@ -104,4 +108,6 @@ public final class NodePlacementHelper {
         return node;
     }
 }
+
+
 

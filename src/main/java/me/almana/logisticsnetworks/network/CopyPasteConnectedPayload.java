@@ -3,14 +3,14 @@ package me.almana.logisticsnetworks.network;
 import me.almana.logisticsnetworks.Logisticsnetworks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import me.almana.logisticsnetworks.network.codec.StreamCodec;
+import me.almana.logisticsnetworks.network.payload.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 public record CopyPasteConnectedPayload(int handOrdinal, BlockPos pos) implements CustomPacketPayload {
 
     public static final Type<CopyPasteConnectedPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(Logisticsnetworks.MOD_ID, "copy_paste_connected"));
+            new ResourceLocation(Logisticsnetworks.MOD_ID, "copy_paste_connected"));
 
     public static final StreamCodec<FriendlyByteBuf, CopyPasteConnectedPayload> STREAM_CODEC = StreamCodec
             .of(CopyPasteConnectedPayload::write, CopyPasteConnectedPayload::read);
@@ -29,3 +29,4 @@ public record CopyPasteConnectedPayload(int handOrdinal, BlockPos pos) implement
         return TYPE;
     }
 }
+

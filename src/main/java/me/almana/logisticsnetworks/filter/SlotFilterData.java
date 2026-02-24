@@ -1,11 +1,11 @@
 package me.almana.logisticsnetworks.filter;
 
+import me.almana.logisticsnetworks.util.ItemDataUtil;
+
 import me.almana.logisticsnetworks.item.SlotFilterItem;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -213,12 +213,12 @@ public final class SlotFilterData {
     }
 
     private static CompoundTag getRoot(ItemStack stack) {
-        CompoundTag custom = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag custom = ItemDataUtil.getCustomData(stack);
         return custom.contains(KEY_ROOT, Tag.TAG_COMPOUND) ? custom.getCompound(KEY_ROOT) : new CompoundTag();
     }
 
     private static void updateRoot(ItemStack stack, java.util.function.Consumer<CompoundTag> modifier) {
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = customTag.contains(KEY_ROOT, Tag.TAG_COMPOUND)
                     ? customTag.getCompound(KEY_ROOT)
                     : new CompoundTag();
@@ -233,3 +233,6 @@ public final class SlotFilterData {
         });
     }
 }
+
+
+

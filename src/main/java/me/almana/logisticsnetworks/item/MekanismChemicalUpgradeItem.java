@@ -1,12 +1,13 @@
 package me.almana.logisticsnetworks.item;
 
+import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-
-import java.util.List;
+import net.minecraft.world.level.Level;
+import org.jetbrains.annotations.Nullable;
 
 public class MekanismChemicalUpgradeItem extends Item {
 
@@ -15,7 +16,7 @@ public class MekanismChemicalUpgradeItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("tooltip.logisticsnetworks.mekanism_chemical_upgrade")
                 .withStyle(ChatFormatting.GRAY));
     }

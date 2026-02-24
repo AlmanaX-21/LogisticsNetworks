@@ -44,6 +44,7 @@ public final class ModTags {
     }
 
     private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(Logisticsnetworks.MOD_ID, path);
+        return new ResourceLocation(Logisticsnetworks.MOD_ID, path);
     }
 }
+

@@ -1,14 +1,14 @@
 package me.almana.logisticsnetworks.filter;
 
+import me.almana.logisticsnetworks.util.ItemDataUtil;
+
 import me.almana.logisticsnetworks.integration.mekanism.MekanismCompat;
 import me.almana.logisticsnetworks.item.NameFilterItem;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 
 public final class NameFilterData {
 
@@ -99,7 +99,7 @@ public final class NameFilterData {
         if (name.isEmpty())
             return false;
 
-        String candidateName = candidate.getHoverName().getString().toLowerCase();
+        String candidateName = candidate.getDisplayName().getString().toLowerCase();
         return candidateName.contains(name);
     }
 
@@ -113,7 +113,7 @@ public final class NameFilterData {
         if (name.isEmpty())
             return false;
 
-        String candidateName = candidate.getHoverName().getString().toLowerCase();
+        String candidateName = candidate.getDisplayName().getString().toLowerCase();
         return candidateName.contains(name);
     }
 
@@ -140,12 +140,12 @@ public final class NameFilterData {
     }
 
     private static CompoundTag getRoot(ItemStack stack) {
-        CompoundTag custom = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag custom = ItemDataUtil.getCustomData(stack);
         return custom.contains(KEY_ROOT, Tag.TAG_COMPOUND) ? custom.getCompound(KEY_ROOT) : new CompoundTag();
     }
 
     private static void updateRoot(ItemStack stack, java.util.function.Consumer<CompoundTag> modifier) {
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = customTag.contains(KEY_ROOT, Tag.TAG_COMPOUND)
                     ? customTag.getCompound(KEY_ROOT)
                     : new CompoundTag();
@@ -160,3 +160,7 @@ public final class NameFilterData {
         });
     }
 }
+
+
+
+

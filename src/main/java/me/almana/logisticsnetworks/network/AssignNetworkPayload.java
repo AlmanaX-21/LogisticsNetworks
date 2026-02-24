@@ -2,8 +2,8 @@ package me.almana.logisticsnetworks.network;
 
 import me.almana.logisticsnetworks.Logisticsnetworks;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import me.almana.logisticsnetworks.network.codec.StreamCodec;
+import me.almana.logisticsnetworks.network.payload.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.Optional;
@@ -15,7 +15,7 @@ public record AssignNetworkPayload(
         String newNetworkName) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<AssignNetworkPayload> TYPE = new CustomPacketPayload.Type<>(
-            ResourceLocation.fromNamespaceAndPath(Logisticsnetworks.MOD_ID, "assign_network"));
+            new ResourceLocation(Logisticsnetworks.MOD_ID, "assign_network"));
 
     public static final StreamCodec<FriendlyByteBuf, AssignNetworkPayload> STREAM_CODEC = StreamCodec
             .of(AssignNetworkPayload::write, AssignNetworkPayload::read);
@@ -40,3 +40,4 @@ public record AssignNetworkPayload(
         return TYPE;
     }
 }
+

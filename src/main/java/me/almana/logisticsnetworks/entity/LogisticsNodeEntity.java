@@ -1,5 +1,7 @@
 package me.almana.logisticsnetworks.entity;
 
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+
 import me.almana.logisticsnetworks.data.ChannelData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -11,12 +13,12 @@ import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.server.level.ServerEntity;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.network.NetworkHooks;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
@@ -77,12 +79,12 @@ public class LogisticsNodeEntity extends Entity {
     }
 
     @Override
-    protected void defineSynchedData(SynchedEntityData.Builder builder) {
-        builder.define(ATTACHED_POS, BlockPos.ZERO);
-        builder.define(VALID, false);
-        builder.define(NETWORK_ID, Optional.empty());
-        builder.define(NETWORK_NAME, "");
-        builder.define(RENDER_VISIBLE, true);
+    protected void defineSynchedData() {
+        this.entityData.define(ATTACHED_POS, BlockPos.ZERO);
+        this.entityData.define(VALID, false);
+        this.entityData.define(NETWORK_ID, Optional.empty());
+        this.entityData.define(NETWORK_NAME, "");
+        this.entityData.define(RENDER_VISIBLE, true);
     }
 
     @Override
@@ -102,7 +104,7 @@ public class LogisticsNodeEntity extends Entity {
             setRenderVisible(compound.getBoolean(KEY_VISIBLE));
         }
 
-        HolderLookup.Provider provider = this.registryAccess();
+        HolderLookup.Provider provider = this.level().registryAccess();
 
         if (compound.contains(KEY_CHANNELS)) {
             CompoundTag channelsTag = compound.getCompound(KEY_CHANNELS);
@@ -121,7 +123,7 @@ public class LogisticsNodeEntity extends Entity {
                 if (tag instanceof CompoundTag entry) {
                     int slot = entry.getInt(KEY_SLOT);
                     if (slot >= 0 && slot < UPGRADE_SLOT_COUNT && entry.contains(KEY_ITEM, Tag.TAG_COMPOUND)) {
-                        this.upgradeItems[slot] = ItemStack.parseOptional(provider, entry.getCompound(KEY_ITEM));
+                        this.upgradeItems[slot] = ItemStackCompat.parseOptional(provider, entry.getCompound(KEY_ITEM));
                     }
                 }
             }
@@ -143,7 +145,7 @@ public class LogisticsNodeEntity extends Entity {
         }
         compound.putBoolean(KEY_VISIBLE, isRenderVisible());
 
-        HolderLookup.Provider provider = registryAccess();
+        HolderLookup.Provider provider = level().registryAccess();
 
         CompoundTag channelsTag = new CompoundTag();
         for (int i = 0; i < CHANNEL_COUNT; i++) {
@@ -156,7 +158,7 @@ public class LogisticsNodeEntity extends Entity {
             if (!this.upgradeItems[i].isEmpty()) {
                 CompoundTag entry = new CompoundTag();
                 entry.putInt(KEY_SLOT, i);
-                entry.put(KEY_ITEM, this.upgradeItems[i].save(provider));
+                entry.put(KEY_ITEM, ItemStackCompat.save(this.upgradeItems[i], provider));
                 upgradesTag.add(entry);
             }
         }
@@ -166,8 +168,8 @@ public class LogisticsNodeEntity extends Entity {
     }
 
     @Override
-    public Packet<ClientGamePacketListener> getAddEntityPacket(ServerEntity serverEntity) {
-        return super.getAddEntityPacket(serverEntity);
+    public Packet<ClientGamePacketListener> getAddEntityPacket() {
+        return NetworkHooks.getEntitySpawningPacket(this);
     }
 
     public void setAttachedPos(BlockPos pos) {
@@ -241,7 +243,7 @@ public class LogisticsNodeEntity extends Entity {
 
     public void setUpgradeItem(int slot, ItemStack stack) {
         if (slot >= 0 && slot < UPGRADE_SLOT_COUNT) {
-            upgradeItems[slot] = (stack == null || stack.isEmpty()) ? ItemStack.EMPTY : stack.copyWithCount(1);
+            upgradeItems[slot] = (stack == null || stack.isEmpty()) ? ItemStack.EMPTY : ItemStackCompat.copyWithCount(stack, 1);
         }
     }
 
@@ -298,3 +300,6 @@ public class LogisticsNodeEntity extends Entity {
     }
 
 }
+
+
+

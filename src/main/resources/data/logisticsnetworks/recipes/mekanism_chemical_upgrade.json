@@ -1,12 +1,12 @@
 {
     "type": "minecraft:crafting_shaped",
-    "neoforge:conditions": [
+    "conditions": [
         {
-            "type": "neoforge:mod_loaded",
+            "type": "forge:mod_loaded",
             "modid": "logisticsnetworks"
         },
         {
-            "type": "neoforge:mod_loaded",
+            "type": "forge:mod_loaded",
             "modid": "mekanism"
         }
     ],
@@ -31,7 +31,7 @@
         }
     },
     "result": {
-        "id": "logisticsnetworks:mekanism_chemical_upgrade",
+        "item": "logisticsnetworks:mekanism_chemical_upgrade",
         "count": 1
     }
 }

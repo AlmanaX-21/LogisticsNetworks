@@ -2,7 +2,6 @@ package me.almana.logisticsnetworks.data;
 
 import com.mojang.logging.LogUtils;
 import me.almana.logisticsnetworks.logic.TransferEngine;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -33,10 +32,7 @@ public class NetworkRegistry extends SavedData {
 
     public static NetworkRegistry get(ServerLevel level) {
         DimensionDataStorage storage = level.getServer().overworld().getDataStorage();
-        return storage.computeIfAbsent(new SavedData.Factory<>(
-                NetworkRegistry::new,
-                NetworkRegistry::load,
-                null), DATA_NAME);
+        return storage.computeIfAbsent(NetworkRegistry::load, NetworkRegistry::new, DATA_NAME);
     }
 
     public void processDirtyNetworks(MinecraftServer server) {
@@ -131,7 +127,7 @@ public class NetworkRegistry extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag compoundTag, HolderLookup.Provider provider) {
+    public CompoundTag save(CompoundTag compoundTag) {
         ListTag list = new ListTag();
         for (LogisticsNetwork network : networks.values()) {
             list.add(network.save());
@@ -140,7 +136,7 @@ public class NetworkRegistry extends SavedData {
         return compoundTag;
     }
 
-    public static NetworkRegistry load(CompoundTag compoundTag, HolderLookup.Provider provider) {
+    public static NetworkRegistry load(CompoundTag compoundTag) {
         NetworkRegistry registry = new NetworkRegistry();
         if (compoundTag.contains(KEY_NETWORKS, Tag.TAG_LIST)) {
             ListTag list = compoundTag.getList(KEY_NETWORKS, Tag.TAG_COMPOUND);

@@ -20,7 +20,7 @@ import org.joml.Matrix4f;
 
 public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
 
-    private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(Logisticsnetworks.MOD_ID,
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Logisticsnetworks.MOD_ID,
             "textures/entity/node.png");
     private final NodeModel<LogisticsNodeEntity> model;
 
@@ -58,10 +58,10 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
 
     @Override
     protected void renderNameTag(LogisticsNodeEntity entity, Component displayName, PoseStack poseStack,
-            MultiBufferSource buffer, int packedLight, float partialTick) {
+            MultiBufferSource buffer, int packedLight) {
         String networkName = entity.getNetworkName();
         String label = (networkName == null || networkName.isBlank()) ? "No Network" : networkName;
-        super.renderNameTag(entity, Component.literal(label), poseStack, buffer, packedLight, partialTick);
+        super.renderNameTag(entity, Component.literal(label), poseStack, buffer, packedLight);
     }
 
     private void renderModel(LogisticsNodeEntity entity, PoseStack poseStack, MultiBufferSource buffer, int light,
@@ -73,10 +73,9 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
         poseStack.scale(-scaleXZ, -scaleY, scaleXZ);
         poseStack.translate(0.0, -1.0625, 0.0);
 
-        int color = isVisible ? -1 : 0x55FFFFFF; // Semi transparent
-
         VertexConsumer consumer = buffer.getBuffer(model.renderType(getTextureLocation(entity)));
-        model.renderToBuffer(poseStack, consumer, light, OverlayTexture.NO_OVERLAY, color);
+        float alpha = isVisible ? 1.0F : 0.33333334F;
+        model.renderToBuffer(poseStack, consumer, light, OverlayTexture.NO_OVERLAY, 1.0F, 1.0F, 1.0F, alpha);
 
         poseStack.popPose();
     }
@@ -123,40 +122,47 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
         float r = 0f, g = 1f, b = 0f, a = 0.35f;
 
         // Top
-        builder.addVertex(matrix, min, max, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, max, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, max, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, max, min).setColor(r, g, b, a);
+        addVertex(builder, matrix, min, max, min, r, g, b, a);
+        addVertex(builder, matrix, min, max, max, r, g, b, a);
+        addVertex(builder, matrix, max, max, max, r, g, b, a);
+        addVertex(builder, matrix, max, max, min, r, g, b, a);
 
         // Bottom
-        builder.addVertex(matrix, max, min, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, min, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, min, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, min, min).setColor(r, g, b, a);
+        addVertex(builder, matrix, max, min, min, r, g, b, a);
+        addVertex(builder, matrix, max, min, max, r, g, b, a);
+        addVertex(builder, matrix, min, min, max, r, g, b, a);
+        addVertex(builder, matrix, min, min, min, r, g, b, a);
 
         // West
-        builder.addVertex(matrix, min, max, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, min, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, min, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, max, max).setColor(r, g, b, a);
+        addVertex(builder, matrix, min, max, min, r, g, b, a);
+        addVertex(builder, matrix, min, min, min, r, g, b, a);
+        addVertex(builder, matrix, min, min, max, r, g, b, a);
+        addVertex(builder, matrix, min, max, max, r, g, b, a);
 
         // East
-        builder.addVertex(matrix, max, max, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, min, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, min, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, max, min).setColor(r, g, b, a);
+        addVertex(builder, matrix, max, max, max, r, g, b, a);
+        addVertex(builder, matrix, max, min, max, r, g, b, a);
+        addVertex(builder, matrix, max, min, min, r, g, b, a);
+        addVertex(builder, matrix, max, max, min, r, g, b, a);
 
         // North
-        builder.addVertex(matrix, max, max, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, min, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, min, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, max, min).setColor(r, g, b, a);
+        addVertex(builder, matrix, max, max, min, r, g, b, a);
+        addVertex(builder, matrix, max, min, min, r, g, b, a);
+        addVertex(builder, matrix, min, min, min, r, g, b, a);
+        addVertex(builder, matrix, min, max, min, r, g, b, a);
 
         // South
-        builder.addVertex(matrix, min, max, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, min, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, min, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, max, max).setColor(r, g, b, a);
+        addVertex(builder, matrix, min, max, max, r, g, b, a);
+        addVertex(builder, matrix, min, min, max, r, g, b, a);
+        addVertex(builder, matrix, max, min, max, r, g, b, a);
+        addVertex(builder, matrix, max, max, max, r, g, b, a);
+    }
+
+    private static void addVertex(VertexConsumer builder, Matrix4f matrix, float x, float y, float z,
+            float red, float green, float blue, float alpha) {
+        builder.vertex(matrix, x, y, z)
+                .color((int) (red * 255.0F), (int) (green * 255.0F), (int) (blue * 255.0F), (int) (alpha * 255.0F))
+                .endVertex();
     }
 
     private void renderLabel(LogisticsNodeEntity entity, String text, PoseStack poseStack, MultiBufferSource buffer,
@@ -183,3 +189,4 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
         return TEXTURE;
     }
 }
+

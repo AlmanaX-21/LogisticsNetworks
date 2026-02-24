@@ -2,7 +2,7 @@ package me.almana.logisticsnetworks.integration.ars;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 
 public final class ArsCompat {
 
@@ -25,3 +25,4 @@ public final class ArsCompat {
         return SourceTransferHelper.hasSourceTile(level, pos);
     }
 }
+

@@ -1,16 +1,17 @@
 package me.almana.logisticsnetworks.filter;
 
+import me.almana.logisticsnetworks.util.ItemDataUtil;
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+
 import me.almana.logisticsnetworks.item.BaseFilterItem;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
 public final class FilterItemData {
@@ -86,7 +87,7 @@ public final class FilterItemData {
         for (Tag t : list) {
             if (t instanceof CompoundTag entry && entry.getInt(KEY_SLOT) == slot) {
                 if (entry.contains(KEY_ITEM_TAG, Tag.TAG_COMPOUND)) {
-                    return ItemStack.parseOptional(provider, entry.getCompound(KEY_ITEM_TAG));
+                    return ItemStackCompat.parseOptional(provider, entry.getCompound(KEY_ITEM_TAG));
                 }
             }
         }
@@ -99,7 +100,7 @@ public final class FilterItemData {
         if (slot < 0 || slot >= getCapacity(stack))
             return;
 
-        ItemStack item = (value == null || value.isEmpty()) ? ItemStack.EMPTY : value.copyWithCount(1);
+        ItemStack item = (value == null || value.isEmpty()) ? ItemStack.EMPTY : ItemStackCompat.copyWithCount(value, 1);
 
         updateRoot(stack, root -> {
             ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
@@ -108,7 +109,7 @@ public final class FilterItemData {
             if (!item.isEmpty()) {
                 CompoundTag entry = new CompoundTag();
                 entry.putInt(KEY_SLOT, slot);
-                entry.put(KEY_ITEM_TAG, item.save(provider));
+                entry.put(KEY_ITEM_TAG, ItemStackCompat.save(item, provider));
                 list.add(entry);
             }
 
@@ -263,7 +264,7 @@ public final class FilterItemData {
         int cap = getCapacity(filter);
         for (int i = 0; i < cap; i++) {
             FluidStack entry = getFluidEntry(filter, i);
-            if (!entry.isEmpty() && FluidStack.isSameFluidSameComponents(entry, candidate)) {
+            if (!entry.isEmpty() && entry.isFluidEqual(candidate)) {
                 return true;
             }
         }
@@ -336,12 +337,12 @@ public final class FilterItemData {
     }
 
     private static CompoundTag getRoot(ItemStack stack) {
-        CompoundTag custom = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag custom = ItemDataUtil.getCustomData(stack);
         return custom.contains(KEY_ROOT, Tag.TAG_COMPOUND) ? custom.getCompound(KEY_ROOT) : new CompoundTag();
     }
 
     private static void updateRoot(ItemStack stack, java.util.function.Consumer<CompoundTag> modifier) {
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = customTag.contains(KEY_ROOT, Tag.TAG_COMPOUND)
                     ? customTag.getCompound(KEY_ROOT)
                     : new CompoundTag();
@@ -356,3 +357,7 @@ public final class FilterItemData {
         });
     }
 }
+
+
+
+

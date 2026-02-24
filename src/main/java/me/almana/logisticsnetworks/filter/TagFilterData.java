@@ -1,16 +1,16 @@
 package me.almana.logisticsnetworks.filter;
 
+import me.almana.logisticsnetworks.util.ItemDataUtil;
+
 import me.almana.logisticsnetworks.integration.mekanism.MekanismCompat;
 import me.almana.logisticsnetworks.item.TagFilterItem;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -42,7 +42,7 @@ public final class TagFilterData {
         if (!isTagFilterItem(stack)) {
             return;
         }
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             if (blacklist) {
                 root.putBoolean(MODE_KEY, true);
@@ -66,7 +66,7 @@ public final class TagFilterData {
             return;
         }
         FilterTargetType normalized = targetType == null ? FilterTargetType.ITEMS : targetType;
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             if (normalized == FilterTargetType.ITEMS) {
                 root.remove(TARGET_KEY);
@@ -118,7 +118,7 @@ public final class TagFilterData {
         }
 
         final boolean[] changed = { false };
-        CustomData.update(DataComponents.CUSTOM_DATA, filterStack, customTag -> {
+        ItemDataUtil.updateCustomData(filterStack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             ListTag current = root.getList(TAGS_KEY, Tag.TAG_STRING);
             boolean alreadySingle = current.size() == 1 && normalized.equals(current.getString(0));
@@ -144,7 +144,7 @@ public final class TagFilterData {
         }
 
         final boolean[] changed = { false };
-        CustomData.update(DataComponents.CUSTOM_DATA, filterStack, customTag -> {
+        ItemDataUtil.updateCustomData(filterStack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             ListTag list = root.getList(TAGS_KEY, Tag.TAG_STRING);
             String current = null;
@@ -200,7 +200,9 @@ public final class TagFilterData {
         }
 
         Set<String> tagSet = new HashSet<>(filterTags);
-        return candidate.getTags().map(tag -> tag.location().toString()).anyMatch(tagSet::contains);
+        return candidate.getFluid().builtInRegistryHolder().tags()
+                .map(tag -> tag.location().toString())
+                .anyMatch(tagSet::contains);
     }
 
     public static boolean containsTag(ItemStack filterStack, String chemicalId) {
@@ -242,7 +244,7 @@ public final class TagFilterData {
     }
 
     private static CompoundTag getRootTag(ItemStack stack) {
-        return getRootTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag());
+        return getRootTag(ItemDataUtil.getCustomData(stack));
     }
 
     private static CompoundTag getRootTag(CompoundTag customTag) {
@@ -260,3 +262,7 @@ public final class TagFilterData {
         }
     }
 }
+
+
+
+

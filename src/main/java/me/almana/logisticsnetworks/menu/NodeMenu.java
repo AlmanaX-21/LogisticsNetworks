@@ -1,5 +1,9 @@
 package me.almana.logisticsnetworks.menu;
 
+import me.almana.logisticsnetworks.network.NetworkHandler;
+
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+
 import me.almana.logisticsnetworks.data.LogisticsNetwork;
 import me.almana.logisticsnetworks.data.NetworkRegistry;
 import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
@@ -18,7 +22,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -82,7 +85,7 @@ public class NodeMenu extends AbstractContainerMenu {
         for (int i = 0; i < UPGRADE_SLOTS; i++) {
             CompoundTag tag = buf.readNbt();
             if (tag != null) {
-                node.setUpgradeItem(i, ItemStack.parseOptional(provider, tag));
+                node.setUpgradeItem(i, ItemStackCompat.parseOptional(provider, tag));
             }
         }
     }
@@ -153,7 +156,7 @@ public class NodeMenu extends AbstractContainerMenu {
             entries.add(new SyncNetworkListPayload.NetworkEntry(net.getId(), net.getName(), net.getNodeUuids().size()));
         }
 
-        PacketDistributor.sendToPlayer(player, new SyncNetworkListPayload(entries));
+        NetworkHandler.sendToPlayer(player, new SyncNetworkListPayload(entries));
     }
 
     private void markDirty() {
@@ -213,7 +216,7 @@ public class NodeMenu extends AbstractContainerMenu {
         @Override
         public void setItem(int slot, ItemStack stack) {
             if (node != null) {
-                node.getChannel(selectedChannel).setFilterItem(slot, stack.copyWithCount(1));
+                node.getChannel(selectedChannel).setFilterItem(slot, ItemStackCompat.copyWithCount(stack, 1));
                 markDirty();
             }
         }
@@ -315,3 +318,7 @@ public class NodeMenu extends AbstractContainerMenu {
         }
     }
 }
+
+
+
+

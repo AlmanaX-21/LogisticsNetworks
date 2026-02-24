@@ -1,8 +1,8 @@
 {
     "type": "minecraft:crafting_shaped",
-    "neoforge:conditions": [
+    "conditions": [
         {
-            "type": "neoforge:mod_loaded",
+            "type": "forge:mod_loaded",
             "modid": "logisticsnetworks"
         }
     ],
@@ -30,7 +30,7 @@
         }
     },
     "result": {
-        "id": "logisticsnetworks:logistics_node",
+        "item": "logisticsnetworks:logistics_node",
         "count": 1
     }
 }

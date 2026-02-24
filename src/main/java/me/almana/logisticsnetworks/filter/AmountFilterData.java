@@ -1,11 +1,11 @@
 package me.almana.logisticsnetworks.filter;
 
+import me.almana.logisticsnetworks.util.ItemDataUtil;
+
 import me.almana.logisticsnetworks.item.AmountFilterItem;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
 
 public final class AmountFilterData {
 
@@ -45,7 +45,7 @@ public final class AmountFilterData {
     public static void setBlacklist(ItemStack stack, boolean isBlacklist) {
         if (!isAmountFilterItem(stack))
             return;
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             if (isBlacklist) {
                 root.putBoolean(KEY_IS_BLACKLIST, true);
@@ -67,7 +67,7 @@ public final class AmountFilterData {
         if (!isAmountFilterItem(stack))
             return;
         FilterTargetType target = type == null ? FilterTargetType.ITEMS : type;
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             if (target == FilterTargetType.ITEMS) {
                 root.remove(KEY_TARGET_TYPE);
@@ -83,7 +83,7 @@ public final class AmountFilterData {
             return;
 
         int clamped = clamp(amount);
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             if (clamped == DEFAULT_AMOUNT) {
                 root.remove(KEY_AMOUNT);
@@ -99,7 +99,7 @@ public final class AmountFilterData {
     }
 
     private static CompoundTag getRootTag(ItemStack stack) {
-        return getRootTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag());
+        return getRootTag(ItemDataUtil.getCustomData(stack));
     }
 
     private static CompoundTag getRootTag(CompoundTag customTag) {
@@ -117,3 +117,6 @@ public final class AmountFilterData {
         }
     }
 }
+
+
+

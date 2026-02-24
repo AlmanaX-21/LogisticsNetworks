@@ -31,10 +31,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
-import net.neoforged.neoforge.registries.DeferredRegister;
-import net.neoforged.neoforge.registries.DeferredHolder;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.common.extensions.IForgeMenuType;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.RegistryObject;
 
 import java.util.function.Supplier;
 
@@ -52,7 +52,7 @@ public class Registration {
                         .create(Registries.RECIPE_SERIALIZER, Logisticsnetworks.MOD_ID);
 
         // Some ugly shit I have done here....
-        public static final DeferredHolder<EntityType<?>, EntityType<LogisticsNodeEntity>> LOGISTICS_NODE = ENTITIES
+        public static final RegistryObject<EntityType<LogisticsNodeEntity>> LOGISTICS_NODE = ENTITIES
                         .register("logistics_node",
                                         () -> EntityType.Builder
                                                         .<LogisticsNodeEntity>of(LogisticsNodeEntity::new,
@@ -62,77 +62,77 @@ public class Registration {
                                                         .updateInterval(20)
                                                         .build("logistics_node"));
 
-        public static final DeferredHolder<Item, LogisticsNodeItem> LOGISTICS_NODE_ITEM = ITEMS.register(
+        public static final RegistryObject<LogisticsNodeItem> LOGISTICS_NODE_ITEM = ITEMS.register(
                         "logistics_node",
                         () -> new LogisticsNodeItem(new Item.Properties()));
 
-        public static final DeferredHolder<Item, WrenchItem> WRENCH = ITEMS.register("wrench",
+        public static final RegistryObject<WrenchItem> WRENCH = ITEMS.register("wrench",
                         () -> new WrenchItem(new Item.Properties().stacksTo(1)));
 
-        public static final DeferredHolder<Item, BaseFilterItem> SMALL_FILTER = ITEMS.register("small_filter",
+        public static final RegistryObject<BaseFilterItem> SMALL_FILTER = ITEMS.register("small_filter",
                         () -> new BaseFilterItem(new Item.Properties(), 9));
-        public static final DeferredHolder<Item, BaseFilterItem> MEDIUM_FILTER = ITEMS.register("medium_filter",
+        public static final RegistryObject<BaseFilterItem> MEDIUM_FILTER = ITEMS.register("medium_filter",
                         () -> new BaseFilterItem(new Item.Properties(), 18));
-        public static final DeferredHolder<Item, BaseFilterItem> BIG_FILTER = ITEMS.register("big_filter",
+        public static final RegistryObject<BaseFilterItem> BIG_FILTER = ITEMS.register("big_filter",
                         () -> new BaseFilterItem(new Item.Properties(), 27));
 
-        public static final DeferredHolder<Item, TagFilterItem> TAG_FILTER = ITEMS.register("tag_filter",
+        public static final RegistryObject<TagFilterItem> TAG_FILTER = ITEMS.register("tag_filter",
                         () -> new TagFilterItem(new Item.Properties()));
-        public static final DeferredHolder<Item, AmountFilterItem> AMOUNT_FILTER = ITEMS.register("amount_filter",
+        public static final RegistryObject<AmountFilterItem> AMOUNT_FILTER = ITEMS.register("amount_filter",
                         () -> new AmountFilterItem(new Item.Properties()));
-        public static final DeferredHolder<Item, DurabilityFilterItem> DURABILITY_FILTER = ITEMS
+        public static final RegistryObject<DurabilityFilterItem> DURABILITY_FILTER = ITEMS
                         .register("durability_filter", () -> new DurabilityFilterItem(new Item.Properties()));
-        public static final DeferredHolder<Item, NbtFilterItem> NBT_FILTER = ITEMS.register("nbt_filter",
+        public static final RegistryObject<NbtFilterItem> NBT_FILTER = ITEMS.register("nbt_filter",
                         () -> new NbtFilterItem(new Item.Properties()));
-        public static final DeferredHolder<Item, ModFilterItem> MOD_FILTER = ITEMS.register("mod_filter",
+        public static final RegistryObject<ModFilterItem> MOD_FILTER = ITEMS.register("mod_filter",
                         () -> new ModFilterItem(new Item.Properties()));
-        public static final DeferredHolder<Item, SlotFilterItem> SLOT_FILTER = ITEMS.register("slot_filter",
+        public static final RegistryObject<SlotFilterItem> SLOT_FILTER = ITEMS.register("slot_filter",
                         () -> new SlotFilterItem(new Item.Properties()));
-        public static final DeferredHolder<Item, NameFilterItem> NAME_FILTER = ITEMS.register("name_filter",
+        public static final RegistryObject<NameFilterItem> NAME_FILTER = ITEMS.register("name_filter",
                         () -> new NameFilterItem(new Item.Properties()));
 
-        public static final DeferredHolder<Item, NodeUpgradeItem> IRON_UPGRADE = ITEMS.register("iron_upgrade",
+        public static final RegistryObject<NodeUpgradeItem> IRON_UPGRADE = ITEMS.register("iron_upgrade",
                         () -> new NodeUpgradeItem(new Item.Properties(), 16, 1_000, 10_000, 10));
-        public static final DeferredHolder<Item, NodeUpgradeItem> GOLD_UPGRADE = ITEMS.register("gold_upgrade",
+        public static final RegistryObject<NodeUpgradeItem> GOLD_UPGRADE = ITEMS.register("gold_upgrade",
                         () -> new NodeUpgradeItem(new Item.Properties(), 32, 5_000, 50_000, 5));
-        public static final DeferredHolder<Item, NodeUpgradeItem> DIAMOND_UPGRADE = ITEMS.register("diamond_upgrade",
+        public static final RegistryObject<NodeUpgradeItem> DIAMOND_UPGRADE = ITEMS.register("diamond_upgrade",
                         () -> new NodeUpgradeItem(new Item.Properties(), 64, 20_000, 250_000, 1));
-        public static final DeferredHolder<Item, NodeUpgradeItem> NETHERITE_UPGRADE = ITEMS.register(
+        public static final RegistryObject<NodeUpgradeItem> NETHERITE_UPGRADE = ITEMS.register(
                         "netherite_upgrade",
                         () -> new NodeUpgradeItem(new Item.Properties(), 10_000, 1_000_000, Integer.MAX_VALUE, 1));
 
-        public static final DeferredHolder<Item, DimensionalUpgradeItem> DIMENSIONAL_UPGRADE = ITEMS.register(
+        public static final RegistryObject<DimensionalUpgradeItem> DIMENSIONAL_UPGRADE = ITEMS.register(
                         "dimensional_upgrade",
                         () -> new DimensionalUpgradeItem(new Item.Properties()));
 
-        public static final DeferredHolder<Item, MekanismChemicalUpgradeItem> MEKANISM_CHEMICAL_UPGRADE = ITEMS
+        public static final RegistryObject<MekanismChemicalUpgradeItem> MEKANISM_CHEMICAL_UPGRADE = ITEMS
                         .register(
                                         "mekanism_chemical_upgrade",
                                         () -> new MekanismChemicalUpgradeItem(new Item.Properties()));
 
-        public static final DeferredHolder<Item, ArsSourceUpgradeItem> ARS_SOURCE_UPGRADE = ITEMS
+        public static final RegistryObject<ArsSourceUpgradeItem> ARS_SOURCE_UPGRADE = ITEMS
                         .register(
                                         "ars_source_upgrade",
                                         () -> new ArsSourceUpgradeItem(new Item.Properties()));
 
-        public static final DeferredHolder<MenuType<?>, MenuType<NodeMenu>> NODE_MENU = MENUS.register("node_menu",
-                        () -> IMenuTypeExtension.create(NodeMenu::new));
-        public static final DeferredHolder<MenuType<?>, MenuType<FilterMenu>> FILTER_MENU = MENUS.register(
+        public static final RegistryObject<MenuType<NodeMenu>> NODE_MENU = MENUS.register("node_menu",
+                        () -> IForgeMenuType.create(NodeMenu::new));
+        public static final RegistryObject<MenuType<FilterMenu>> FILTER_MENU = MENUS.register(
                         "filter_menu",
-                        () -> IMenuTypeExtension.create(FilterMenu::new));
-        public static final DeferredHolder<MenuType<?>, MenuType<ClipboardMenu>> CLIPBOARD_MENU = MENUS.register(
+                        () -> IForgeMenuType.create(FilterMenu::new));
+        public static final RegistryObject<MenuType<ClipboardMenu>> CLIPBOARD_MENU = MENUS.register(
                         "clipboard_menu",
-                        () -> IMenuTypeExtension.create(ClipboardMenu::new));
-        public static final DeferredHolder<MenuType<?>, MenuType<MassPlacementMenu>> MASS_PLACEMENT_MENU = MENUS
+                        () -> IForgeMenuType.create(ClipboardMenu::new));
+        public static final RegistryObject<MenuType<MassPlacementMenu>> MASS_PLACEMENT_MENU = MENUS
                         .register(
                                         "mass_placement_menu",
-                                        () -> IMenuTypeExtension.create(MassPlacementMenu::new));
+                                        () -> IForgeMenuType.create(MassPlacementMenu::new));
 
-        public static final DeferredHolder<RecipeSerializer<?>, SimpleCraftingRecipeSerializer<FilterCopyClearRecipe>> FILTER_COPY_CLEAR_RECIPE = RECIPE_SERIALIZERS
+        public static final RegistryObject<SimpleCraftingRecipeSerializer<FilterCopyClearRecipe>> FILTER_COPY_CLEAR_RECIPE = RECIPE_SERIALIZERS
                         .register("filter_copy_clear",
                                         () -> new SimpleCraftingRecipeSerializer<>(FilterCopyClearRecipe::new));
 
-        public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TAB = CREATIVE_TABS.register(
+        public static final RegistryObject<CreativeModeTab> TAB = CREATIVE_TABS.register(
                         "logistics_tab",
                         () -> CreativeModeTab.builder()
                                         .title(Component.translatable("itemGroup." + Logisticsnetworks.MOD_ID))
@@ -152,3 +152,5 @@ public class Registration {
                 CREATIVE_TABS.register(modEventBus);
         }
 }
+
+

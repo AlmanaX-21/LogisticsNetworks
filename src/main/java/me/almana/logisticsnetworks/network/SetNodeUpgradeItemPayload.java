@@ -1,9 +1,9 @@
 package me.almana.logisticsnetworks.network;
 
 import me.almana.logisticsnetworks.Logisticsnetworks;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import me.almana.logisticsnetworks.network.codec.RegistryFriendlyByteBuf;
+import me.almana.logisticsnetworks.network.codec.StreamCodec;
+import me.almana.logisticsnetworks.network.payload.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
@@ -13,7 +13,7 @@ public record SetNodeUpgradeItemPayload(
         ItemStack upgradeItem) implements CustomPacketPayload {
 
     public static final Type<SetNodeUpgradeItemPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(Logisticsnetworks.MOD_ID, "set_node_upgrade_item"));
+            new ResourceLocation(Logisticsnetworks.MOD_ID, "set_node_upgrade_item"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, SetNodeUpgradeItemPayload> STREAM_CODEC = StreamCodec
             .of(SetNodeUpgradeItemPayload::write, SetNodeUpgradeItemPayload::read);
@@ -22,13 +22,13 @@ public record SetNodeUpgradeItemPayload(
         return new SetNodeUpgradeItemPayload(
                 buf.readVarInt(),
                 buf.readVarInt(),
-                ItemStack.OPTIONAL_STREAM_CODEC.decode(buf));
+                buf.readItem());
     }
 
     public static void write(RegistryFriendlyByteBuf buf, SetNodeUpgradeItemPayload payload) {
         buf.writeVarInt(payload.entityId);
         buf.writeVarInt(payload.upgradeSlot);
-        ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, payload.upgradeItem);
+        buf.writeItem(payload.upgradeItem);
     }
 
     @Override
@@ -36,3 +36,4 @@ public record SetNodeUpgradeItemPayload(
         return TYPE;
     }
 }
+

@@ -1,5 +1,9 @@
 package me.almana.logisticsnetworks.client.screen;
 
+import me.almana.logisticsnetworks.network.NetworkHandler;
+
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import me.almana.logisticsnetworks.filter.DurabilityFilterData;
@@ -25,10 +29,9 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 
 import java.util.*;
 
@@ -187,7 +190,8 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
                 if (isFluid) {
                     FluidStack fs = FluidUtil.getFluidContained(extractor).orElse(FluidStack.EMPTY);
                     if (!fs.isEmpty()) {
-                        fs.getTags().forEach(t -> cachedTags.add(t.location().toString()));
+                        fs.getFluid().builtInRegistryHolder().tags()
+                                .forEach(t -> cachedTags.add(t.location().toString()));
                     }
                 } else if (isChemical && MekanismCompat.isLoaded()) {
                     List<String> chemTags = MekanismCompat.getChemicalTagsFromItem(extractor);
@@ -1168,42 +1172,42 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
 
     private void sendTagUpdate(String tag) {
         menu.setSelectedTag(tag == null || tag.isBlank() ? null : tag.trim());
-        PacketDistributor.sendToServer(new ModifyFilterTagPayload(tag == null ? "" : tag, false));
+        NetworkHandler.sendToServer(new ModifyFilterTagPayload(tag == null ? "" : tag, false));
     }
 
     private void sendTagRemove(String tag) {
         menu.setSelectedTag(null);
-        PacketDistributor.sendToServer(new ModifyFilterTagPayload(tag == null ? "" : tag, true));
+        NetworkHandler.sendToServer(new ModifyFilterTagPayload(tag == null ? "" : tag, true));
     }
 
     private void sendModUpdate(String mod) {
         menu.setSelectedMod(mod == null || mod.isBlank() ? null : mod.trim());
-        PacketDistributor.sendToServer(new ModifyFilterModPayload(mod == null ? "" : mod, false));
+        NetworkHandler.sendToServer(new ModifyFilterModPayload(mod == null ? "" : mod, false));
     }
 
     private void sendModRemove(String mod) {
         menu.setSelectedMod(null);
-        PacketDistributor.sendToServer(new ModifyFilterModPayload(mod == null ? "" : mod, true));
+        NetworkHandler.sendToServer(new ModifyFilterModPayload(mod == null ? "" : mod, true));
     }
 
     private void sendNbtUpdate(String path) {
-        PacketDistributor.sendToServer(new ModifyFilterNbtPayload(path, path == null));
+        NetworkHandler.sendToServer(new ModifyFilterNbtPayload(path, path == null));
     }
 
     private void sendAmountUpdate(int amount) {
-        PacketDistributor.sendToServer(new SetAmountFilterValuePayload(amount));
+        NetworkHandler.sendToServer(new SetAmountFilterValuePayload(amount));
     }
 
     private void sendDurabilityUpdate(int val) {
-        PacketDistributor.sendToServer(new SetDurabilityFilterValuePayload(val));
+        NetworkHandler.sendToServer(new SetDurabilityFilterValuePayload(val));
     }
 
     private void sendSlotUpdate(String expression) {
-        PacketDistributor.sendToServer(new SetSlotFilterSlotsPayload(expression == null ? "" : expression));
+        NetworkHandler.sendToServer(new SetSlotFilterSlotsPayload(expression == null ? "" : expression));
     }
 
     private void sendNameUpdate(String name) {
-        PacketDistributor.sendToServer(new SetNameFilterPayload(name == null ? "" : name));
+        NetworkHandler.sendToServer(new SetNameFilterPayload(name == null ? "" : name));
     }
 
     private void renderNameMode(GuiGraphics g, int mx, int my) {
@@ -1310,15 +1314,15 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+    public boolean mouseScrolled(double mx, double my, double delta) {
         if (isDropdownOpen) {
-            if (sy > 0 && listScrollOffset > 0)
+            if (delta > 0 && listScrollOffset > 0)
                 listScrollOffset--;
-            else if (sy < 0)
+            else if (delta < 0)
                 listScrollOffset++;
             return true;
         }
-        return super.mouseScrolled(mx, my, sx, sy);
+        return super.mouseScrolled(mx, my, delta);
     }
 
     @Override
@@ -1360,7 +1364,7 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
             if (isHovering(x, y, 18, 18, mx, my)) {
                 FluidStack fs = menu.getFluidFilter(i);
                 if (!fs.isEmpty()) {
-                    g.renderTooltip(font, fs.getHoverName(), mx, my);
+                    g.renderTooltip(font, fs.getDisplayName(), mx, my);
                     break;
                 }
                 String chemId = menu.getChemicalFilter(i);
@@ -1381,7 +1385,7 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     public void setFluidFilterEntry(Player player, int slot, FluidStack fluidStack) {
         if (fluidStack.isEmpty())
             return;
-        PacketDistributor.sendToServer(
+        NetworkHandler.sendToServer(
                 new SetFilterFluidEntryPayload(slot, BuiltInRegistries.FLUID.getKey(fluidStack.getFluid()).toString()));
         menu.setFluidFilterEntry(player, slot, fluidStack);
     }
@@ -1389,7 +1393,7 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     public void setChemicalFilterEntry(Player player, int slot, String chemicalId) {
         if (chemicalId == null || chemicalId.isBlank())
             return;
-        PacketDistributor.sendToServer(
+        NetworkHandler.sendToServer(
                 new SetFilterChemicalEntryPayload(slot, chemicalId));
         menu.setChemicalFilterEntry(player, slot, chemicalId);
     }
@@ -1397,7 +1401,7 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     public void setItemFilterEntry(Player player, int slot, ItemStack stack) {
         if (stack.isEmpty())
             return;
-        PacketDistributor.sendToServer(new SetFilterItemEntryPayload(slot, stack));
+        NetworkHandler.sendToServer(new SetFilterItemEntryPayload(slot, stack));
         menu.setItemFilterEntry(player, slot, stack);
     }
 
@@ -1455,7 +1459,7 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
 
     public void setSelectorGhostItem(ItemStack stack) {
         if (menu.getExtractorSlotIndex() >= 0) {
-            menu.slots.get(menu.getExtractorSlotIndex()).set(stack.copyWithCount(1));
+            menu.slots.get(menu.getExtractorSlotIndex()).set(ItemStackCompat.copyWithCount(stack, 1));
             this.selectorGhostChemicalId = null;
             this.selectorGhostChemicalTags = null;
             this.selectorGhostChemicalName = null;
@@ -1523,3 +1527,7 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
         return Component.translatable(key, args).getString();
     }
 }
+
+
+
+

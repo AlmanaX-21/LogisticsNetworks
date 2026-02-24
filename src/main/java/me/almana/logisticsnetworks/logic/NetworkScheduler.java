@@ -2,16 +2,19 @@ package me.almana.logisticsnetworks.logic;
 
 import me.almana.logisticsnetworks.data.NetworkRegistry;
 import net.minecraft.server.level.ServerLevel;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.event.TickEvent;
 
 // Dirty-only dispatch, no scan
 @EventBusSubscriber
 public class NetworkScheduler {
 
     @SubscribeEvent
-    public static void onServerTick(ServerTickEvent.Post event) {
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         ServerLevel level = event.getServer().overworld();
 
         NetworkRegistry registry = NetworkRegistry.get(level);
@@ -21,3 +24,5 @@ public class NetworkScheduler {
         registry.processDirtyNetworks(event.getServer());
     }
 }
+
+

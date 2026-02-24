@@ -6,7 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import me.almana.logisticsnetworks.Logisticsnetworks;
-import net.neoforged.fml.loading.FMLPaths;
+import net.minecraftforge.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -139,3 +139,4 @@ public final class UpgradeLimitsConfig {
             int sourceBatch) {
     }
 }
+

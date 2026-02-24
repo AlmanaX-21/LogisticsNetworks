@@ -1,5 +1,7 @@
 package me.almana.logisticsnetworks.data;
 
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+
 import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
 import me.almana.logisticsnetworks.registration.ModTags;
 import net.minecraft.core.Direction;
@@ -222,7 +224,7 @@ public final class NodeClipboardConfig {
         if (!isValidChannel(channel) || slot < 0 || slot >= ChannelData.FILTER_SIZE) {
             return;
         }
-        filterItems[channel][slot] = stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+        filterItems[channel][slot] = stack == null || stack.isEmpty() ? ItemStack.EMPTY : ItemStackCompat.copyWithCount(stack, 1);
     }
 
     public ItemStack getUpgradeItem(int slot) {
@@ -236,7 +238,7 @@ public final class NodeClipboardConfig {
         if (slot < 0 || slot >= upgradeItems.length) {
             return;
         }
-        upgradeItems[slot] = stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+        upgradeItems[slot] = stack == null || stack.isEmpty() ? ItemStack.EMPTY : ItemStackCompat.copyWithCount(stack, 1);
     }
 
     public int getEnabledChannelCount() {
@@ -287,7 +289,7 @@ public final class NodeClipboardConfig {
     public List<RequiredItem> getRequiredItemsPreview() {
         List<RequiredItem> result = new ArrayList<>();
         for (Requirement requirement : buildRequirements(null)) {
-            result.add(new RequiredItem(requirement.stack().copyWithCount(1), requirement.count()));
+            result.add(new RequiredItem(ItemStackCompat.copyWithCount(requirement.stack(), 1), requirement.count()));
         }
         return result;
     }
@@ -399,7 +401,7 @@ public final class NodeClipboardConfig {
 
                 for (int slot = 0; slot < ChannelData.FILTER_SIZE; slot++) {
                     ItemStack stack = channel.getFilterItem(slot);
-                    filters[channelIndex][slot] = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+                    filters[channelIndex][slot] = stack.isEmpty() ? ItemStack.EMPTY : ItemStackCompat.copyWithCount(stack, 1);
                 }
             } else {
                 config.enabled = false;
@@ -420,7 +422,7 @@ public final class NodeClipboardConfig {
 
         for (int slot = 0; slot < LogisticsNodeEntity.UPGRADE_SLOT_COUNT; slot++) {
             ItemStack stack = node.getUpgradeItem(slot);
-            upgrades[slot] = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+            upgrades[slot] = stack.isEmpty() ? ItemStack.EMPTY : ItemStackCompat.copyWithCount(stack, 1);
         }
 
         if ((networkName == null || networkName.isBlank()) && networkId != null
@@ -478,7 +480,7 @@ public final class NodeClipboardConfig {
                 CompoundTag entry = new CompoundTag();
                 entry.putInt(KEY_CHANNEL, channelIndex);
                 entry.putInt(KEY_SLOT, slot);
-                entry.put(KEY_ITEM, stack.save(provider));
+                entry.put(KEY_ITEM, ItemStackCompat.save(stack, provider));
                 filtersTag.add(entry);
             }
         }
@@ -494,7 +496,7 @@ public final class NodeClipboardConfig {
             }
             CompoundTag entry = new CompoundTag();
             entry.putInt(KEY_SLOT, slot);
-            entry.put(KEY_ITEM, stack.save(provider));
+            entry.put(KEY_ITEM, ItemStackCompat.save(stack, provider));
             upgradesTag.add(entry);
         }
         if (!upgradesTag.isEmpty()) {
@@ -504,7 +506,7 @@ public final class NodeClipboardConfig {
         ListTag requiredTag = new ListTag();
         for (Requirement requirement : buildRequirements(null)) {
             CompoundTag entry = new CompoundTag();
-            entry.put(KEY_ITEM, requirement.stack().save(provider));
+            entry.put(KEY_ITEM, ItemStackCompat.save(requirement.stack(), provider));
             entry.putInt(KEY_COUNT, requirement.count());
             requiredTag.add(entry);
         }
@@ -586,8 +588,8 @@ public final class NodeClipboardConfig {
                     continue;
                 }
 
-                ItemStack stack = ItemStack.parseOptional(provider, entry.getCompound(KEY_ITEM));
-                filters[channel][slot] = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+                ItemStack stack = ItemStackCompat.parseOptional(provider, entry.getCompound(KEY_ITEM));
+                filters[channel][slot] = stack.isEmpty() ? ItemStack.EMPTY : ItemStackCompat.copyWithCount(stack, 1);
             }
         }
 
@@ -603,8 +605,8 @@ public final class NodeClipboardConfig {
                     continue;
                 }
 
-                ItemStack stack = ItemStack.parseOptional(provider, entry.getCompound(KEY_ITEM));
-                upgrades[slot] = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+                ItemStack stack = ItemStackCompat.parseOptional(provider, entry.getCompound(KEY_ITEM));
+                upgrades[slot] = stack.isEmpty() ? ItemStack.EMPTY : ItemStackCompat.copyWithCount(stack, 1);
             }
         }
 
@@ -817,7 +819,7 @@ public final class NodeClipboardConfig {
                 return;
             }
         }
-        requirements.add(new Requirement(stack.copyWithCount(1), 1));
+        requirements.add(new Requirement(ItemStackCompat.copyWithCount(stack, 1), 1));
     }
 
     private static int findProtectedSlot(Inventory inventory, ItemStack protectedStack) {
@@ -944,7 +946,7 @@ public final class NodeClipboardConfig {
                 continue;
             }
             ItemStack current = slots[slot];
-            if (current.isEmpty() || !ItemStack.isSameItemSameComponents(current, remaining)) {
+            if (current.isEmpty() || !ItemStackCompat.isSameItemSameComponents(current, remaining)) {
                 continue;
             }
             int max = Math.min(current.getMaxStackSize(), remaining.getMaxStackSize());
@@ -965,7 +967,7 @@ public final class NodeClipboardConfig {
                 continue;
             }
             int move = Math.min(remaining.getCount(), remaining.getMaxStackSize());
-            slots[slot] = remaining.copyWithCount(move);
+            slots[slot] = ItemStackCompat.copyWithCount(remaining, move);
             remaining.shrink(move);
         }
 
@@ -994,7 +996,7 @@ public final class NodeClipboardConfig {
                 continue;
             }
             ItemStack current = inventory.getItem(slot);
-            if (current.isEmpty() || !ItemStack.isSameItemSameComponents(current, remaining)) {
+            if (current.isEmpty() || !ItemStackCompat.isSameItemSameComponents(current, remaining)) {
                 continue;
             }
             int max = Math.min(current.getMaxStackSize(), remaining.getMaxStackSize());
@@ -1016,7 +1018,7 @@ public final class NodeClipboardConfig {
                 continue;
             }
             int move = Math.min(remaining.getCount(), remaining.getMaxStackSize());
-            inventory.setItem(slot, remaining.copyWithCount(move));
+            inventory.setItem(slot, ItemStackCompat.copyWithCount(remaining, move));
             remaining.shrink(move);
         }
     }
@@ -1046,8 +1048,8 @@ public final class NodeClipboardConfig {
 
                 if (expected.isEmpty()) {
                     channel.setFilterItem(slot, ItemStack.EMPTY);
-                } else if (!ItemStack.isSameItemSameComponents(expected, current)) {
-                    channel.setFilterItem(slot, expected.copyWithCount(1));
+                } else if (!ItemStackCompat.isSameItemSameComponents(expected, current)) {
+                    channel.setFilterItem(slot, ItemStackCompat.copyWithCount(expected, 1));
                 }
             }
         }
@@ -1058,8 +1060,8 @@ public final class NodeClipboardConfig {
 
             if (expected.isEmpty()) {
                 node.setUpgradeItem(slot, ItemStack.EMPTY);
-            } else if (!ItemStack.isSameItemSameComponents(expected, current)) {
-                node.setUpgradeItem(slot, expected.copyWithCount(1));
+            } else if (!ItemStackCompat.isSameItemSameComponents(expected, current)) {
+                node.setUpgradeItem(slot, ItemStackCompat.copyWithCount(expected, 1));
             }
         }
 
@@ -1093,3 +1095,6 @@ public final class NodeClipboardConfig {
         return fallback;
     }
 }
+
+
+

@@ -1,16 +1,16 @@
 package me.almana.logisticsnetworks.network;
 
 import me.almana.logisticsnetworks.Logisticsnetworks;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import me.almana.logisticsnetworks.network.codec.RegistryFriendlyByteBuf;
+import me.almana.logisticsnetworks.network.codec.ByteBufCodecs;
+import me.almana.logisticsnetworks.network.codec.StreamCodec;
+import me.almana.logisticsnetworks.network.payload.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 public record SetDurabilityFilterValuePayload(int value) implements CustomPacketPayload {
 
         public static final Type<SetDurabilityFilterValuePayload> TYPE = new Type<>(
-                        ResourceLocation.fromNamespaceAndPath(Logisticsnetworks.MOD_ID, "set_durability_filter_value"));
+                        new ResourceLocation(Logisticsnetworks.MOD_ID, "set_durability_filter_value"));
 
         public static final StreamCodec<RegistryFriendlyByteBuf, SetDurabilityFilterValuePayload> STREAM_CODEC = StreamCodec
                         .composite(
@@ -23,3 +23,4 @@ public record SetDurabilityFilterValuePayload(int value) implements CustomPacket
                 return TYPE;
         }
 }
+

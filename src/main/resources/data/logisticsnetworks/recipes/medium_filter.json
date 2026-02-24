@@ -1,8 +1,8 @@
 {
     "type": "minecraft:crafting_shaped",
-    "neoforge:conditions": [
+    "conditions": [
         {
-            "type": "neoforge:mod_loaded",
+            "type": "forge:mod_loaded",
             "modid": "logisticsnetworks"
         }
     ],
@@ -21,7 +21,7 @@
         }
     },
     "result": {
-        "id": "logisticsnetworks:medium_filter",
+        "item": "logisticsnetworks:medium_filter",
         "count": 1
     }
 }

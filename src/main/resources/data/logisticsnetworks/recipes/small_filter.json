@@ -1,8 +1,8 @@
 {
     "type": "minecraft:crafting_shaped",
-    "neoforge:conditions": [
+    "conditions": [
         {
-            "type": "neoforge:mod_loaded",
+            "type": "forge:mod_loaded",
             "modid": "logisticsnetworks"
         }
     ],
@@ -17,14 +17,14 @@
             "tag": "minecraft:planks"
         },
         "S": {
-            "tag": "c:strings"
+            "tag": "forge:string"
         },
         "A": {
             "item": "minecraft:paper"
         }
     },
     "result": {
-        "id": "logisticsnetworks:small_filter",
+        "item": "logisticsnetworks:small_filter",
         "count": 1
     }
 }

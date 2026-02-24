@@ -1,5 +1,7 @@
 package me.almana.logisticsnetworks.client.screen;
 
+import me.almana.logisticsnetworks.network.NetworkHandler;
+
 import me.almana.logisticsnetworks.data.ChannelData;
 import me.almana.logisticsnetworks.data.ChannelMode;
 import me.almana.logisticsnetworks.data.ChannelType;
@@ -20,7 +22,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.*;
 
@@ -492,7 +493,7 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
         String visibilityLabel = getVisibilityLabel(node.isRenderVisible());
         if (isHoveringAbs(leftPos + 8, topPos + 4, font.width(visibilityLabel) + 10, 12, mx, my)) {
             node.setRenderVisible(!node.isRenderVisible());
-            PacketDistributor.sendToServer(new ToggleNodeVisibilityPayload(node.getId()));
+            NetworkHandler.sendToServer(new ToggleNodeVisibilityPayload(node.getId()));
             return true;
         }
 
@@ -506,7 +507,7 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
             if (isHoveringAbs(leftPos + 10 + i * 26, topPos + 20, 24, 14, mx, my)) {
                 selectedChannel = i;
                 getMenu().setSelectedChannel(i);
-                PacketDistributor.sendToServer(new SelectNodeChannelPayload(node.getId(), i));
+                NetworkHandler.sendToServer(new SelectNodeChannelPayload(node.getId(), i));
                 return true;
             }
         }
@@ -682,7 +683,7 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
 
     private void commitChannelUpdate(LogisticsNodeEntity node, ChannelData ch) {
         validateChannelConfigs(node);
-        PacketDistributor.sendToServer(new UpdateChannelPayload(
+        NetworkHandler.sendToServer(new UpdateChannelPayload(
                 node.getId(), selectedChannel, ch.isEnabled(),
                 ch.getMode().ordinal(), ch.getType().ordinal(),
                 ch.getBatchSize(), ch.getTickDelay(),
@@ -696,7 +697,7 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
     private void sendNetworkAssign(Optional<UUID> id, String name) {
         LogisticsNodeEntity node = getMenu().getNode();
         if (node != null) {
-            PacketDistributor.sendToServer(new AssignNetworkPayload(node.getId(), id, name));
+            NetworkHandler.sendToServer(new AssignNetworkPayload(node.getId(), id, name));
         }
     }
 
@@ -766,15 +767,15 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+    public boolean mouseScrolled(double mx, double my, double delta) {
         if (currentPage == Page.NETWORK_SELECT) {
-            if (sy > 0 && networkScrollOffset > 0)
+            if (delta > 0 && networkScrollOffset > 0)
                 networkScrollOffset--;
-            else if (sy < 0 && networkScrollOffset + NETWORKS_PER_PAGE < networkList.size())
+            else if (delta < 0 && networkScrollOffset + NETWORKS_PER_PAGE < networkList.size())
                 networkScrollOffset++;
             return true;
         }
-        return super.mouseScrolled(mx, my, sx, sy);
+        return super.mouseScrolled(mx, my, delta);
     }
 
     public void receiveNetworkList(List<SyncNetworkListPayload.NetworkEntry> networks) {
@@ -821,3 +822,4 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
                 : "gui.logisticsnetworks.filter_mode.match_any");
     }
 }
+

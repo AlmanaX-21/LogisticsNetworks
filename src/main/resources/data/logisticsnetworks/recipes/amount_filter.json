@@ -1,8 +1,8 @@
 {
     "type": "minecraft:crafting_shapeless",
-    "neoforge:conditions": [
+    "conditions": [
         {
-            "type": "neoforge:mod_loaded",
+            "type": "forge:mod_loaded",
             "modid": "logisticsnetworks"
         }
     ],
@@ -16,7 +16,7 @@
         }
     ],
     "result": {
-        "id": "logisticsnetworks:amount_filter",
+        "item": "logisticsnetworks:amount_filter",
         "count": 1
     }
 }

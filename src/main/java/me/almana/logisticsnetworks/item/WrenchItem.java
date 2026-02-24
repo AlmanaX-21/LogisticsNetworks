@@ -1,5 +1,8 @@
 package me.almana.logisticsnetworks.item;
 
+import me.almana.logisticsnetworks.util.ItemDataUtil;
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+
 import me.almana.logisticsnetworks.data.NodeClipboardConfig;
 import me.almana.logisticsnetworks.data.NetworkRegistry;
 import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
@@ -12,7 +15,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -36,11 +38,11 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraftforge.network.NetworkHooks;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
@@ -247,7 +249,7 @@ public class WrenchItem extends Item {
             return false;
         }
 
-        NodeClipboardConfig clipboard = getClipboard(wrenchStack, player.registryAccess());
+        NodeClipboardConfig clipboard = getClipboard(wrenchStack, player.level().registryAccess());
         if (clipboard == null) {
             String key = hasClipboardPayload(wrenchStack)
                     ? "message.logisticsnetworks.clipboard.invalid"
@@ -536,7 +538,7 @@ public class WrenchItem extends Item {
         if (isSecondaryUse(player)) {
             sendClipboardPreview(serverPlayer, stack);
         } else {
-            serverPlayer.openMenu(new SimpleMenuProvider(
+            NetworkHooks.openScreen(serverPlayer, new SimpleMenuProvider(
                     (id, inventory, p) -> new ClipboardMenu(id, inventory, hand),
                     Component.translatable("gui.logisticsnetworks.clipboard")),
                     buf -> buf.writeVarInt(hand.ordinal()));
@@ -551,7 +553,7 @@ public class WrenchItem extends Item {
             return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
         }
 
-        serverPlayer.openMenu(new SimpleMenuProvider(
+        NetworkHooks.openScreen(serverPlayer, new SimpleMenuProvider(
                 (id, inventory, p) -> new MassPlacementMenu(id, inventory, hand),
                 Component.translatable("gui.logisticsnetworks.mass_placement")),
                 buf -> buf.writeVarInt(hand.ordinal()));
@@ -594,7 +596,7 @@ public class WrenchItem extends Item {
         }
 
         Mode resolved = mode == null ? Mode.WRENCH : mode;
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             if (resolved == Mode.WRENCH) {
                 root.remove(KEY_MODE);
@@ -626,7 +628,7 @@ public class WrenchItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("tooltip.logisticsnetworks.wrench.mode", getModeDisplayName(getMode(stack))));
     }
 
@@ -660,7 +662,7 @@ public class WrenchItem extends Item {
 
     private InteractionResult openNodeGui(LogisticsNodeEntity node, Player player) {
         if (player instanceof ServerPlayer serverPlayer) {
-            serverPlayer.openMenu(new MenuProvider() {
+            NetworkHooks.openScreen(serverPlayer, new MenuProvider() {
                 @Override
                 public Component getDisplayName() {
                     return Component.translatable("gui.logisticsnetworks.node_config");
@@ -670,7 +672,7 @@ public class WrenchItem extends Item {
                 public AbstractContainerMenu createMenu(int containerId, Inventory playerInv, Player p) {
                     return new NodeMenu(containerId, playerInv, node);
                 }
-            }, buf -> Util.writeNodeSyncData(buf, node, player.registryAccess()));
+            }, buf -> Util.writeNodeSyncData(buf, node, player.level().registryAccess()));
 
             if (serverPlayer.containerMenu instanceof NodeMenu menu) {
                 menu.sendNetworkListToClient(serverPlayer);
@@ -681,7 +683,7 @@ public class WrenchItem extends Item {
 
     private InteractionResult copyFromNode(LogisticsNodeEntity node, Player player, ItemStack wrenchStack) {
         NodeClipboardConfig clipboard = NodeClipboardConfig.fromNode(node);
-        setClipboard(wrenchStack, clipboard, player.registryAccess());
+        setClipboard(wrenchStack, clipboard, player.level().registryAccess());
         player.displayClientMessage(Component.translatable("message.logisticsnetworks.clipboard.copied"), true);
         return InteractionResult.CONSUME;
     }
@@ -691,7 +693,7 @@ public class WrenchItem extends Item {
             return InteractionResult.FAIL;
         }
 
-        NodeClipboardConfig clipboard = getClipboard(wrenchStack, serverPlayer.registryAccess());
+        NodeClipboardConfig clipboard = getClipboard(wrenchStack, serverPlayer.level().registryAccess());
         if (clipboard == null) {
             String key = hasClipboardPayload(wrenchStack)
                     ? "message.logisticsnetworks.clipboard.invalid"
@@ -731,7 +733,7 @@ public class WrenchItem extends Item {
     }
 
     private static CompoundTag getRootTag(ItemStack stack) {
-        return getRootTag(stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag());
+        return getRootTag(ItemDataUtil.getCustomData(stack));
     }
 
     private static boolean hasClipboardPayload(ItemStack stack) {
@@ -767,7 +769,7 @@ public class WrenchItem extends Item {
             return;
         }
 
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             if (clipboard == null) {
                 root.remove(KEY_CLIPBOARD);
@@ -782,7 +784,7 @@ public class WrenchItem extends Item {
         if (stack.isEmpty() || !(stack.getItem() instanceof WrenchItem)) {
             return;
         }
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             root.remove(KEY_CLIPBOARD);
             writeRoot(customTag, root);
@@ -837,7 +839,7 @@ public class WrenchItem extends Item {
         }
 
         boolean[] removed = { false };
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             ListTag list = root.getList(KEY_MASS_SELECTIONS, Tag.TAG_COMPOUND);
 
@@ -870,7 +872,7 @@ public class WrenchItem extends Item {
         }
 
         boolean[] added = { false };
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             ListTag list = root.getList(KEY_MASS_SELECTIONS, Tag.TAG_COMPOUND);
 
@@ -906,7 +908,7 @@ public class WrenchItem extends Item {
             return;
         }
 
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             ListTag list = root.getList(KEY_MASS_SELECTIONS, Tag.TAG_COMPOUND);
             ListTag updated = new ListTag();
@@ -936,7 +938,7 @@ public class WrenchItem extends Item {
             return;
         }
 
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = getRootTag(customTag);
             root.remove(KEY_MASS_SELECTIONS);
             writeRoot(customTag, root);
@@ -960,7 +962,7 @@ public class WrenchItem extends Item {
     }
 
     private void sendClipboardPreview(ServerPlayer player, ItemStack wrenchStack) {
-        NodeClipboardConfig clipboard = getClipboard(wrenchStack, player.registryAccess());
+        NodeClipboardConfig clipboard = getClipboard(wrenchStack, player.level().registryAccess());
         if (clipboard == null) {
             String key = hasClipboardPayload(wrenchStack)
                     ? "message.logisticsnetworks.clipboard.invalid"
@@ -1016,8 +1018,11 @@ public class WrenchItem extends Item {
                 buf.writeNbt(node.getChannel(i).save(provider));
             }
             for (int i = 0; i < LogisticsNodeEntity.UPGRADE_SLOT_COUNT; i++) {
-                buf.writeNbt(node.getUpgradeItem(i).saveOptional(provider));
+                buf.writeNbt(ItemStackCompat.saveOptional(node.getUpgradeItem(i), provider));
             }
         }
     }
 }
+
+
+

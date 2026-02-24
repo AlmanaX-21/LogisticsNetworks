@@ -24,17 +24,17 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.common.util.TriState;
-import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.neoforged.neoforge.event.level.BlockEvent;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.event.entity.player.PlayerContainerEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.level.BlockEvent;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.items.IItemHandler;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -74,7 +74,7 @@ public class EventHandler {
             return;
 
         if (WrenchItem.getMode(stack) == WrenchItem.Mode.MASS_PLACEMENT) {
-            event.setUseBlock(TriState.FALSE);
+            event.setUseBlock(Event.Result.DENY);
             return;
         }
 
@@ -85,7 +85,7 @@ public class EventHandler {
                 new AABB(pos).inflate(0.5));
         for (LogisticsNodeEntity node : nodes) {
             if (node.getAttachedPos().equals(pos) && node.isActive()) {
-                event.setUseBlock(TriState.FALSE);
+                event.setUseBlock(Event.Result.DENY);
                 return;
             }
         }
@@ -134,24 +134,31 @@ public class EventHandler {
     private static List<String> getBlacklistedResourceIds(ServerLevel level, BlockPos pos) {
         List<String> ids = new ArrayList<>();
 
-        IItemHandler itemHandler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
-        if (itemHandler != null) {
-            for (int slot = 0; slot < itemHandler.getSlots(); slot++) {
-                ItemStack stack = itemHandler.getStackInSlot(slot);
-                if (!stack.isEmpty() && stack.is(ModTags.RESOURCE_BLACKLIST_ITEMS)) {
-                    String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-                    if (!ids.contains(id)) ids.add(id);
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (blockEntity != null) {
+            IItemHandler itemHandler = blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER, null).orElse(null);
+            if (itemHandler != null) {
+                for (int slot = 0; slot < itemHandler.getSlots(); slot++) {
+                    ItemStack stack = itemHandler.getStackInSlot(slot);
+                    if (!stack.isEmpty() && stack.is(ModTags.RESOURCE_BLACKLIST_ITEMS)) {
+                        String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+                        if (!ids.contains(id)) {
+                            ids.add(id);
+                        }
+                    }
                 }
             }
-        }
 
-        IFluidHandler fluidHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos, null);
-        if (fluidHandler != null) {
-            for (int tank = 0; tank < fluidHandler.getTanks(); tank++) {
-                FluidStack fluid = fluidHandler.getFluidInTank(tank);
-                if (!fluid.isEmpty() && fluid.getFluid().builtInRegistryHolder().is(ModTags.RESOURCE_BLACKLIST_FLUIDS)) {
-                    String id = BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
-                    if (!ids.contains(id)) ids.add(id);
+            IFluidHandler fluidHandler = blockEntity.getCapability(ForgeCapabilities.FLUID_HANDLER, null).orElse(null);
+            if (fluidHandler != null) {
+                for (int tank = 0; tank < fluidHandler.getTanks(); tank++) {
+                    FluidStack fluid = fluidHandler.getFluidInTank(tank);
+                    if (!fluid.isEmpty() && fluid.getFluid().builtInRegistryHolder().is(ModTags.RESOURCE_BLACKLIST_FLUIDS)) {
+                        String id = BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
+                        if (!ids.contains(id)) {
+                            ids.add(id);
+                        }
+                    }
                 }
             }
         }
@@ -207,3 +214,5 @@ public class EventHandler {
     }
 
 }
+
+

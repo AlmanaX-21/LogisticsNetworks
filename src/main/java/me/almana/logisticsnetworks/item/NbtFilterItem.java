@@ -2,6 +2,7 @@ package me.almana.logisticsnetworks.item;
 
 import me.almana.logisticsnetworks.filter.NbtFilterData;
 import me.almana.logisticsnetworks.menu.FilterMenu;
+import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -13,8 +14,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
-
-import java.util.List;
+import net.minecraftforge.network.NetworkHooks;
+import org.jetbrains.annotations.Nullable;
 
 public class NbtFilterItem extends Item {
 
@@ -26,7 +27,7 @@ public class NbtFilterItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (player instanceof ServerPlayer serverPlayer) {
-            serverPlayer.openMenu(new SimpleMenuProvider(
+            NetworkHooks.openScreen(serverPlayer, new SimpleMenuProvider(
                     (containerId, playerInventory, ignored) -> new FilterMenu(containerId, playerInventory, hand),
                     stack.getHoverName()), buf -> {
                         buf.writeVarInt(hand.ordinal());
@@ -44,7 +45,7 @@ public class NbtFilterItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         boolean blacklist = NbtFilterData.isBlacklist(stack);
         String selection = NbtFilterData.hasSelection(stack)
                 ? NbtFilterData.getSelectedPath(stack)

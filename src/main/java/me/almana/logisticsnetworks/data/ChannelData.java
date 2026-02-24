@@ -1,5 +1,7 @@
 package me.almana.logisticsnetworks.data;
 
+import me.almana.logisticsnetworks.util.ItemStackCompat;
+
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -66,7 +68,7 @@ public class ChannelData {
                 if (!filterItems[i].isEmpty()) {
                     CompoundTag entry = new CompoundTag();
                     entry.putInt("Slot", i);
-                    entry.put("Item", filterItems[i].save(provider));
+                    entry.put("Item", ItemStackCompat.save(filterItems[i], provider));
                     list.add(entry);
                 }
             }
@@ -109,12 +111,12 @@ public class ChannelData {
                 if (t instanceof CompoundTag ct) {
                     int slot = ct.getInt("Slot");
                     if (slot >= 0 && slot < FILTER_SIZE) {
-                        filterItems[slot] = ItemStack.parseOptional(provider, ct.getCompound("Item"));
+                        filterItems[slot] = ItemStackCompat.parseOptional(provider, ct.getCompound("Item"));
                     }
                 }
             }
         } else if (provider != null && tag.contains("FilterItem", Tag.TAG_COMPOUND)) {
-            filterItems[0] = ItemStack.parseOptional(provider, tag.getCompound("FilterItem"));
+            filterItems[0] = ItemStackCompat.parseOptional(provider, tag.getCompound("FilterItem"));
         }
     }
 
@@ -226,7 +228,10 @@ public class ChannelData {
 
     public void setFilterItem(int slot, ItemStack stack) {
         if (slot >= 0 && slot < FILTER_SIZE) {
-            filterItems[slot] = stack == null ? ItemStack.EMPTY : stack.copyWithCount(1);
+            filterItems[slot] = stack == null ? ItemStack.EMPTY : ItemStackCompat.copyWithCount(stack, 1);
         }
     }
 }
+
+
+

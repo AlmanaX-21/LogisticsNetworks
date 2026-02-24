@@ -3,7 +3,7 @@ package me.almana.logisticsnetworks.integration.mekanism;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
@@ -78,3 +78,4 @@ public final class MekanismCompat {
         return ChemicalTransferHelper.getChemicalTextComponent(chemicalId);
     }
 }
+

@@ -2,7 +2,7 @@ package me.almana.logisticsnetworks.network;
 
 import me.almana.logisticsnetworks.client.screen.NodeScreen;
 import net.minecraft.client.Minecraft;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import me.almana.logisticsnetworks.network.payload.IPayloadContext;
 
 public class ClientPayloadHandler {
 
@@ -14,3 +14,4 @@ public class ClientPayloadHandler {
         });
     }
 }
+

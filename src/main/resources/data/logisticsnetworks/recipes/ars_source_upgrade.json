@@ -1,12 +1,12 @@
 {
     "type": "minecraft:crafting_shaped",
-    "neoforge:conditions": [
+    "conditions": [
         {
-            "type": "neoforge:mod_loaded",
+            "type": "forge:mod_loaded",
             "modid": "logisticsnetworks"
         },
         {
-            "type": "neoforge:mod_loaded",
+            "type": "forge:mod_loaded",
             "modid": "ars_nouveau"
         }
     ],
@@ -28,7 +28,7 @@
         }
     },
     "result": {
-        "id": "logisticsnetworks:ars_source_upgrade",
+        "item": "logisticsnetworks:ars_source_upgrade",
         "count": 1
     }
 }

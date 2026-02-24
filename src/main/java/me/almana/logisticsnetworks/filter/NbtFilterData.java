@@ -1,15 +1,15 @@
 package me.almana.logisticsnetworks.filter;
 
+import me.almana.logisticsnetworks.util.ItemDataUtil;
+
 import me.almana.logisticsnetworks.item.NbtFilterItem;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -260,22 +260,32 @@ public final class NbtFilterData {
         if (stack.isEmpty() || provider == null)
             return null;
 
-        Tag tag = stack.save(provider);
-        if (tag instanceof CompoundTag c && c.contains("components", Tag.TAG_COMPOUND)) {
-            return c.getCompound("components");
+        CompoundTag saved = stack.save(new CompoundTag());
+        CompoundTag components = new CompoundTag();
+        if (saved.contains("id", Tag.TAG_STRING)) {
+            components.putString("id", saved.getString("id"));
         }
-        return null;
+        components.putByte("count", saved.getByte("Count"));
+        if (saved.contains("tag", Tag.TAG_COMPOUND)) {
+            components.put("tag", saved.getCompound("tag").copy());
+        }
+        return components;
     }
 
     private static @Nullable CompoundTag getSerializedComponents(FluidStack stack, HolderLookup.Provider provider) {
         if (stack == null || stack.isEmpty() || provider == null)
             return null;
 
-        Tag tag = stack.saveOptional(provider);
-        if (tag instanceof CompoundTag c && c.contains("components", Tag.TAG_COMPOUND)) {
-            return c.getCompound("components");
+        CompoundTag saved = stack.writeToNBT(new CompoundTag());
+        CompoundTag components = new CompoundTag();
+        if (saved.contains("FluidName", Tag.TAG_STRING)) {
+            components.putString("fluid", saved.getString("FluidName"));
         }
-        return null;
+        components.putInt("amount", saved.getInt("Amount"));
+        if (saved.contains("Tag", Tag.TAG_COMPOUND)) {
+            components.put("tag", saved.getCompound("Tag").copy());
+        }
+        return components;
     }
 
     public static boolean isFluidPath(@Nullable String path) {
@@ -371,12 +381,12 @@ public final class NbtFilterData {
 
     private static CompoundTag getRoot(ItemStack stack) {
 
-        CompoundTag custom = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        CompoundTag custom = ItemDataUtil.getCustomData(stack);
         return custom.contains(KEY_ROOT, Tag.TAG_COMPOUND) ? custom.getCompound(KEY_ROOT) : new CompoundTag();
     }
 
     private static void updateRoot(ItemStack stack, java.util.function.Consumer<CompoundTag> modifier) {
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, customTag -> {
+        ItemDataUtil.updateCustomData(stack, customTag -> {
             CompoundTag root = customTag.getCompound(KEY_ROOT);
             CompoundTag workingRoot = customTag.contains(KEY_ROOT, Tag.TAG_COMPOUND)
                     ? customTag.getCompound(KEY_ROOT)
@@ -392,3 +402,7 @@ public final class NbtFilterData {
         });
     }
 }
+
+
+
+
