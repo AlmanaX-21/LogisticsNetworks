@@ -2,6 +2,7 @@ package me.almana.logisticsnetworks.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import me.almana.logisticsnetworks.ClientConfig;
 import me.almana.logisticsnetworks.Config;
 import me.almana.logisticsnetworks.Logisticsnetworks;
 import me.almana.logisticsnetworks.client.model.NodeModel;
@@ -16,13 +17,24 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.client.gui.Font;
+import net.minecraft.world.entity.Entity;
 import org.joml.Matrix4f;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
 
     private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(Logisticsnetworks.MOD_ID,
             "textures/entity/node.png");
     private final NodeModel<LogisticsNodeEntity> model;
+
+    /** null = no limit needed (all nodes fit within max), otherwise IDs of nearest nodes */
+    private static Set<Integer> allowedNodeIds;
+    private static long lastComputeTick = -1;
 
     public LogisticsNodeRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -37,6 +49,12 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
             return;
 
         boolean isHoldingWrench = mc.player.isHolding(Registration.WRENCH.get());
+        if (isHoldingWrench) {
+            updateAllowedNodes(mc);
+            if (allowedNodeIds != null && !allowedNodeIds.contains(entity.getId())) {
+                isHoldingWrench = false;
+            }
+        }
         boolean isVisible = entity.isRenderVisible();
 
         if (isVisible || isHoldingWrench) {
@@ -53,7 +71,8 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
     @Override
     protected boolean shouldShowName(LogisticsNodeEntity entity) {
         var mc = Minecraft.getInstance();
-        return mc.player != null && mc.player.isHolding(Registration.WRENCH.get());
+        return mc.player != null && mc.player.isHolding(Registration.WRENCH.get())
+                && (allowedNodeIds == null || allowedNodeIds.contains(entity.getId()));
     }
 
     @Override
@@ -176,6 +195,34 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
                 Font.DisplayMode.NORMAL, 0, fullbright);
 
         poseStack.popPose();
+    }
+
+    private static void updateAllowedNodes(Minecraft mc) {
+        long tick = mc.level.getGameTime();
+        if (tick == lastComputeTick) return;
+        lastComputeTick = tick;
+
+        int limit = ClientConfig.maxRenderedNodes;
+        List<LogisticsNodeEntity> nodes = new ArrayList<>();
+        for (Entity e : mc.level.entitiesForRendering()) {
+            if (e instanceof LogisticsNodeEntity node) {
+                nodes.add(node);
+            }
+        }
+
+        if (nodes.size() <= limit) {
+            allowedNodeIds = null;
+            return;
+        }
+
+        double px = mc.player.getX(), py = mc.player.getY(), pz = mc.player.getZ();
+        nodes.sort(Comparator.comparingDouble(n -> n.distanceToSqr(px, py, pz)));
+
+        Set<Integer> ids = new HashSet<>(limit * 2);
+        for (int i = 0; i < limit; i++) {
+            ids.add(nodes.get(i).getId());
+        }
+        allowedNodeIds = ids;
     }
 
     @Override
