@@ -18,6 +18,7 @@ val mod_group_id: String by project
 val mod_authors: String by project
 val mod_description: String by project
 val jei_version: String by project
+val jade_version: String by project
 val parchment_minecraft_version: String by project
 val parchment_mappings_version: String by project
 val mekanism_version: String by project
@@ -30,6 +31,7 @@ repositories {
     mavenLocal()
     maven("https://maven.blamejared.com")
     maven("https://modmaven.dev/")
+    maven("https://api.modrinth.com/maven")
 }
 
 base {
@@ -94,6 +96,9 @@ dependencies {
     compileOnly("mekanism:Mekanism:${mekanism_version}")
 
     compileOnly("com.hollingsworth.ars_nouveau:ars_nouveau-${minecraft_version}:${ars_nouveau_version}")
+
+    compileOnly("maven.modrinth:jade:${jade_version}")
+    runtimeOnly("maven.modrinth:jade:${jade_version}")
 }
 
 val generateModMetadata by tasks.registering(ProcessResources::class) {
