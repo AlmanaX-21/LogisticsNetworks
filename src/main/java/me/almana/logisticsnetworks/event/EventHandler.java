@@ -38,6 +38,8 @@ import net.neoforged.neoforge.items.IItemHandler;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import me.almana.logisticsnetworks.command.LogisticsCommand;
 
 @EventBusSubscriber(modid = Logisticsnetworks.MOD_ID)
 public class EventHandler {
@@ -63,6 +65,11 @@ public class EventHandler {
             node.setNetworkName("");
         }
 
+    }
+
+    @SubscribeEvent
+    public static void onRegisterCommands(RegisterCommandsEvent event) {
+        LogisticsCommand.register(event.getDispatcher());
     }
 
     @SubscribeEvent
@@ -140,7 +147,8 @@ public class EventHandler {
                 ItemStack stack = itemHandler.getStackInSlot(slot);
                 if (!stack.isEmpty() && stack.is(ModTags.RESOURCE_BLACKLIST_ITEMS)) {
                     String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-                    if (!ids.contains(id)) ids.add(id);
+                    if (!ids.contains(id))
+                        ids.add(id);
                 }
             }
         }
@@ -149,9 +157,11 @@ public class EventHandler {
         if (fluidHandler != null) {
             for (int tank = 0; tank < fluidHandler.getTanks(); tank++) {
                 FluidStack fluid = fluidHandler.getFluidInTank(tank);
-                if (!fluid.isEmpty() && fluid.getFluid().builtInRegistryHolder().is(ModTags.RESOURCE_BLACKLIST_FLUIDS)) {
+                if (!fluid.isEmpty()
+                        && fluid.getFluid().builtInRegistryHolder().is(ModTags.RESOURCE_BLACKLIST_FLUIDS)) {
                     String id = BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
-                    if (!ids.contains(id)) ids.add(id);
+                    if (!ids.contains(id))
+                        ids.add(id);
                 }
             }
         }

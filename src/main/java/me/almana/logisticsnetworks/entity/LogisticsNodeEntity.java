@@ -25,10 +25,15 @@ import java.util.UUID;
 
 import me.almana.logisticsnetworks.Config;
 import me.almana.logisticsnetworks.data.NetworkRegistry;
+import me.almana.logisticsnetworks.Logisticsnetworks;
 import me.almana.logisticsnetworks.registration.Registration;
 import net.minecraft.server.level.ServerLevel;
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 
 public class LogisticsNodeEntity extends Entity {
+
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     public static final int UPGRADE_SLOT_COUNT = 4;
     public static final int CHANNEL_COUNT = 9;
@@ -214,6 +219,12 @@ public class LogisticsNodeEntity extends Entity {
     @Override
     public boolean canBeCollidedWith() {
         return false;
+    }
+
+    @Override
+    public void kill() {
+        LOGGER.warn(
+                "Attempt to kill LogisticsNodeEntity ignored. Please use '/logisticsnetworks removeNodes' or '/ln removeNodes' instead to safely remove nodes.");
     }
 
     @Override
