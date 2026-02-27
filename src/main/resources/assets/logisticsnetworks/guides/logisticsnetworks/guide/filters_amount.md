@@ -1,16 +1,18 @@
 ---
 item_ids: [logisticsnetworks:amount_filter]
 navigation:
-  title: Amount Filter
-  parent: filters.md
+  title: Deprecated Amount Filter
+  parent: deprecated_filters.md
   icon: logisticsnetworks:amount_filter
   position: 6
 ---
 
-# Amount Filter
+# Amount Filter (Deprecated)
+
+> [!WARNING]
+> The isolated Amount Filter is deprecated. Amount filtering is now a built-in feature of base filters (Small, Medium, Big).
 
 Amount Filter sets a threshold value.
-Default value is 64.
 
 How threshold is used:
 
@@ -27,13 +29,11 @@ For fluids:
 1. Export keeps fluid reserve above threshold.
 2. Import stops fill at threshold.
 
-When multiple Amount Filters exist on a channel:
+When multiple Amount filters exist on a channel:
 
 1. Export side uses the highest threshold.
 2. Import side uses the lowest threshold.
 
 Target type can be Items, Fluids, or Chemicals.
 Current transfer code applies threshold logic to Items and Fluids.
-
-<RecipeFor id="logisticsnetworks:amount_filter" />
 

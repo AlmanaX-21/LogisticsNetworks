@@ -1,17 +1,20 @@
 ---
 item_ids: [logisticsnetworks:tag_filter]
 navigation:
-  title: Tag Filter
-  parent: filters.md
+  title: Deprecated Tag Filter
+  parent: deprecated_filters.md
   icon: logisticsnetworks:tag_filter
   position: 2
 ---
 
-# Tag Filter
+# Tag Filter (Deprecated)
+
+> [!WARNING]
+> The isolated Tag Filter is deprecated. Tag filtering is now a built-in feature of base filters (Small, Medium, Big).
 
 Tag Filter stores one tag value.
 
-You can set it by:
+You can set it by opening Tag Mode for a slot (`Ctrl + Left Click`) and then:
 
 1. Typing a tag
 2. Using the extractor slot and picker list
@@ -23,6 +26,4 @@ Target type can be:
 3. Chemicals
 
 Chemical tag checks are used only when Mekanism is present.
-
-<RecipeFor id="logisticsnetworks:tag_filter" />
 
