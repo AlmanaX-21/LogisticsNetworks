@@ -40,6 +40,7 @@ public class NodeMenu extends AbstractContainerMenu {
 
     private final LogisticsNodeEntity node;
     private int selectedChannel = 0;
+    private boolean nodeSlotsActive = true;
 
     private final Container filterContainer;
     private final Container upgradeContainer;
@@ -136,6 +137,13 @@ public class NodeMenu extends AbstractContainerMenu {
     public void setSelectedChannel(int channelIndex) {
         this.selectedChannel = Math.max(0, Math.min(8, channelIndex));
         broadcastChanges();
+    }
+
+    /**
+     * Toggle filter and upgrade slot activity to hide them on the network selection page.
+     */
+    public void setNodeSlotsVisible(boolean visible) {
+        this.nodeSlotsActive = visible;
     }
 
     @Override
@@ -290,9 +298,14 @@ public class NodeMenu extends AbstractContainerMenu {
         }
     }
 
-    private static class FilterSlot extends Slot {
+    private class FilterSlot extends Slot {
         FilterSlot(Container c, int i, int x, int y) {
             super(c, i, x, y);
+        }
+
+        @Override
+        public boolean isActive() {
+            return nodeSlotsActive;
         }
 
         @Override
@@ -306,9 +319,14 @@ public class NodeMenu extends AbstractContainerMenu {
         }
     }
 
-    private static class UpgradeSlot extends Slot {
+    private class UpgradeSlot extends Slot {
         UpgradeSlot(Container c, int i, int x, int y) {
             super(c, i, x, y);
+        }
+
+        @Override
+        public boolean isActive() {
+            return nodeSlotsActive;
         }
 
         @Override

@@ -114,6 +114,7 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
         stopNumericEdit(false);
         stopRenameEdit(false);
         clearWidgets();
+        getMenu().setNodeSlotsVisible(currentPage == Page.CHANNEL_CONFIG);
         if (currentPage == Page.NETWORK_SELECT) {
             int cx = leftPos + GUI_WIDTH / 2;
             int y = topPos + 32;

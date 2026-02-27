@@ -57,6 +57,47 @@ public class TransferEngine {
             boolean hasPerEntryAmounts) {
     }
 
+    private record RecipeEntry(ItemStack item, String tag, int amount) {
+    }
+
+    private static List<RecipeEntry> buildRecipe(ItemStack[] exportFilters, HolderLookup.Provider provider) {
+        List<RecipeEntry> recipe = new ArrayList<>();
+        if (exportFilters == null)
+            return recipe;
+
+        for (ItemStack filter : exportFilters) {
+            if (!FilterItemData.isFilterItem(filter))
+                continue;
+            int cap = FilterItemData.getCapacity(filter);
+            for (int slot = 0; slot < cap; slot++) {
+                int amount = FilterItemData.getEntryAmount(filter, slot);
+                if (amount <= 0)
+                    continue;
+
+                String tag = FilterItemData.getEntryTag(filter, slot);
+                if (tag != null) {
+                    recipe.add(new RecipeEntry(ItemStack.EMPTY, tag, amount));
+                    continue;
+                }
+
+                ItemStack entry = FilterItemData.getEntry(filter, slot, provider);
+                if (!entry.isEmpty()) {
+                    recipe.add(new RecipeEntry(entry, null, amount));
+                }
+            }
+        }
+        return recipe;
+    }
+
+    private static boolean matchesRecipeEntry(RecipeEntry entry, ItemStack candidate) {
+        if (entry.tag != null) {
+            return candidate.getTags()
+                    .map(t -> t.location().toString())
+                    .anyMatch(entry.tag::equals);
+        }
+        return !entry.item.isEmpty() && ItemStack.isSameItem(entry.item, candidate);
+    }
+
     public static boolean processNetwork(LogisticsNetwork network, MinecraftServer server) {
         if (network == null || server == null)
             return false;
@@ -278,7 +319,8 @@ public class TransferEngine {
             if (curBackoff > configuredDelay) {
                 node.setBackoffTicks(index, Math.max(configuredDelay, curBackoff / BACKOFF_DECAY_DIVISOR));
             }
-            if (channel.getDistributionMode() == DistributionMode.ROUND_ROBIN) {
+            if (channel.getDistributionMode() == DistributionMode.ROUND_ROBIN
+                    || channel.getDistributionMode() == DistributionMode.RECIPE_ROBIN) {
                 node.advanceRoundRobin(index, targetCount);
             }
         } else {
@@ -318,7 +360,7 @@ public class TransferEngine {
                         (a, b) -> Double.compare(b.node.distanceToSqr(sx, sy, sz), a.node.distanceToSqr(sx, sy, sz)));
                 return targets;
             }
-            case ROUND_ROBIN -> {
+            case ROUND_ROBIN, RECIPE_ROBIN -> {
                 int startIdx = sourceNode.getRoundRobinIndex(channelIndex) % targets.size();
                 if (startIdx == 0)
                     return targets;
@@ -390,10 +432,18 @@ public class TransferEngine {
         if (reachableTargets.isEmpty())
             return 0;
 
-        int moved = executeMove(sourceHandler, reachableTargets, batchLimit,
-                exportFilters, exportChannel.getFilterMode(),
-                sourceAllowedSlots,
-                sourceLevel.registryAccess());
+        int moved;
+        if (exportChannel.getDistributionMode() == DistributionMode.RECIPE_ROBIN) {
+            moved = executeMoveRecipe(sourceHandler, reachableTargets, batchLimit,
+                    exportFilters, exportChannel.getFilterMode(),
+                    sourceAllowedSlots,
+                    sourceLevel.registryAccess());
+        } else {
+            moved = executeMove(sourceHandler, reachableTargets, batchLimit,
+                    exportFilters, exportChannel.getFilterMode(),
+                    sourceAllowedSlots,
+                    sourceLevel.registryAccess());
+        }
         return moved > 0 ? 1 : 0;
     }
 
@@ -711,7 +761,16 @@ public class TransferEngine {
                         continue;
                     }
 
-                    ItemStack toMove = source.extractItem(slot, allowed, false);
+                    // Simulate insertion first to determine how many the target can actually accept
+                    ItemStack simulatedInsert = extracted.copyWithCount(allowed);
+                    ItemStack simRemainder = insertItemWithAllowedSlots(target.handler(), simulatedInsert, true,
+                            target.allowedSlots());
+                    int acceptableCount = allowed - simRemainder.getCount();
+                    if (acceptableCount <= 0) {
+                        continue;
+                    }
+
+                    ItemStack toMove = source.extractItem(slot, acceptableCount, false);
                     if (toMove.isEmpty()) {
                         continue;
                     }
@@ -721,7 +780,21 @@ public class TransferEngine {
                     int moved = toMove.getCount() - uninserted.getCount();
 
                     if (!uninserted.isEmpty()) {
-                        source.insertItem(slot, uninserted, false);
+                        // Put back what couldn't be inserted
+                        ItemStack stillLeft = source.insertItem(slot, uninserted, false);
+                        if (!stillLeft.isEmpty()) {
+                            // Source rejected the put-back; try all source slots as a safety net
+                            for (int fallback = 0; fallback < source.getSlots() && !stillLeft.isEmpty(); fallback++) {
+                                stillLeft = source.insertItem(fallback, stillLeft, false);
+                            }
+                            if (!stillLeft.isEmpty()) {
+                                LOGGER.error("ITEM VOIDING PREVENTED: Could not return {} to source handler {}. " +
+                                        "Forcing back into target as last resort.",
+                                        stillLeft, source.getClass().getSimpleName());
+                                // Last resort: we cannot void items. Re-insert into target to undo.
+                                insertItemWithAllowedSlots(target.handler(), stillLeft, false, null);
+                            }
+                        }
                     }
 
                     if (moved > 0) {
@@ -758,6 +831,99 @@ public class TransferEngine {
             }
         }
         return limit - remaining;
+    }
+
+    private static int executeMoveRecipe(IItemHandler source, List<ItemTransferTarget> targets, int limit,
+            ItemStack[] exportFilters, FilterMode exportFilterMode,
+            boolean[] sourceAllowedSlots,
+            HolderLookup.Provider provider) {
+
+        List<RecipeEntry> recipe = buildRecipe(exportFilters, provider);
+
+        // No per-entry amounts configured: fall back to normal round-robin behavior
+        if (recipe.isEmpty()) {
+            return executeMove(source, targets, limit, exportFilters, exportFilterMode,
+                    sourceAllowedSlots, provider);
+        }
+
+        if (targets.isEmpty())
+            return 0;
+
+        // RECIPE_ROBIN targets only the first destination (rotation already applied by orderTargets)
+        ItemTransferTarget target = targets.get(0);
+        int totalMoved = 0;
+
+        for (RecipeEntry entry : recipe) {
+            int wantToMove = Math.min(entry.amount, limit - totalMoved);
+            if (wantToMove <= 0)
+                break;
+
+            int movedForEntry = 0;
+
+            for (int slot = 0; slot < source.getSlots() && movedForEntry < wantToMove; slot++) {
+                if (sourceAllowedSlots != null
+                        && (slot >= sourceAllowedSlots.length || !sourceAllowedSlots[slot])) {
+                    continue;
+                }
+
+                int needed = wantToMove - movedForEntry;
+                ItemStack extracted = source.extractItem(slot, needed, true);
+                if (extracted.isEmpty() || extracted.is(ModTags.RESOURCE_BLACKLIST_ITEMS)) {
+                    continue;
+                }
+
+                // Must match this specific recipe entry
+                if (!matchesRecipeEntry(entry, extracted)) {
+                    continue;
+                }
+
+                // Check import filter acceptance on the target side
+                if (provider != null && !FilterLogic.matchesItem(target.importFilters(),
+                        target.importFilterMode(), extracted, provider, null)) {
+                    continue;
+                }
+
+                int toExtract = Math.min(extracted.getCount(), needed);
+
+                // Simulate insertion to determine how many the target can accept
+                ItemStack simulatedInsert = extracted.copyWithCount(toExtract);
+                ItemStack simRemainder = insertItemWithAllowedSlots(
+                        target.handler(), simulatedInsert, true, target.allowedSlots());
+                int acceptableCount = toExtract - simRemainder.getCount();
+                if (acceptableCount <= 0)
+                    continue;
+
+                ItemStack toMove = source.extractItem(slot, acceptableCount, false);
+                if (toMove.isEmpty())
+                    continue;
+
+                ItemStack uninserted = insertItemWithAllowedSlots(
+                        target.handler(), toMove, false, target.allowedSlots());
+                int moved = toMove.getCount() - uninserted.getCount();
+
+                // Put-back safety for uninserted items
+                if (!uninserted.isEmpty()) {
+                    ItemStack stillLeft = source.insertItem(slot, uninserted, false);
+                    if (!stillLeft.isEmpty()) {
+                        for (int fb = 0; fb < source.getSlots() && !stillLeft.isEmpty(); fb++) {
+                            stillLeft = source.insertItem(fb, stillLeft, false);
+                        }
+                        if (!stillLeft.isEmpty()) {
+                            LOGGER.error("ITEM VOIDING PREVENTED in recipe robin: Could not return {} to source handler {}. " +
+                                    "Forcing back into target as last resort.",
+                                    stillLeft, source.getClass().getSimpleName());
+                            insertItemWithAllowedSlots(target.handler(), stillLeft, false, null);
+                        }
+                    }
+                }
+
+                movedForEntry += moved;
+            }
+
+            totalMoved += movedForEntry;
+        }
+
+        return totalMoved;
     }
 
     private static ItemStack insertItemWithAllowedSlots(IItemHandler handler, ItemStack stack, boolean simulate,
