@@ -67,7 +67,6 @@ public class LogisticsNodeEntity extends Entity {
         for (int i = 0; i < CHANNEL_COUNT; i++) {
             this.channels[i] = new ChannelData();
         }
-        this.channels[0] = new ChannelData(true);
 
         Arrays.fill(this.upgradeItems, ItemStack.EMPTY);
     }
