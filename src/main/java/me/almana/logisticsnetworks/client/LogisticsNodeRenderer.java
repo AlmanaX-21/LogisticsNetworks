@@ -10,14 +10,18 @@ import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
 import me.almana.logisticsnetworks.registration.Registration;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.BlockPos;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.client.gui.Font;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.LightLayer;
+
 import org.joml.Matrix4f;
 
 import java.util.ArrayList;
@@ -32,7 +36,6 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
             "textures/entity/node.png");
     private final NodeModel<LogisticsNodeEntity> model;
 
-    /** null = no limit needed (all nodes fit within max), otherwise IDs of nearest nodes */
     private static Set<Integer> allowedNodeIds;
     private static long lastComputeTick = -1;
 
@@ -90,11 +93,12 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
         float scaleXZ = 17.0f / 16.0f;
         float scaleY = 18.0f / 16.0f;
         poseStack.scale(-scaleXZ, -scaleY, scaleXZ);
-        poseStack.translate(0.0, -1.0625, 0.0);
+        poseStack.translate(0.0, -17.0f / 16.0f - (8.0f / 18.0f), 0.0);
 
         int color = isVisible ? -1 : 0x55FFFFFF; // Semi transparent
 
-        VertexConsumer consumer = buffer.getBuffer(model.renderType(getTextureLocation(entity)));
+        VertexConsumer consumer = buffer
+                .getBuffer(RenderType.entityCutoutNoCull(getTextureLocation(entity)));
         model.renderToBuffer(poseStack, consumer, light, OverlayTexture.NO_OVERLAY, color);
 
         poseStack.popPose();
@@ -137,45 +141,46 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
         VertexConsumer builder = buffer.getBuffer(ModRenderTypes.OVERLAY);
         Matrix4f matrix = poseStack.last().pose();
 
-        float min = -0.501f;
-        float max = 0.501f;
+        float minX = -0.501f, maxX = 0.501f;
+        float minY = -0.001f, maxY = 1.001f;
+        float minZ = -0.501f, maxZ = 0.501f;
         float r = 0f, g = 1f, b = 0f, a = 0.35f;
 
         // Top
-        builder.addVertex(matrix, min, max, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, max, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, max, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, max, min).setColor(r, g, b, a);
+        builder.addVertex(matrix, minX, maxY, minZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, minX, maxY, maxZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, maxX, maxY, maxZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, maxX, maxY, minZ).setColor(r, g, b, a);
 
         // Bottom
-        builder.addVertex(matrix, max, min, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, min, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, min, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, min, min).setColor(r, g, b, a);
+        builder.addVertex(matrix, maxX, minY, minZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, maxX, minY, maxZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, minX, minY, maxZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, minX, minY, minZ).setColor(r, g, b, a);
 
         // West
-        builder.addVertex(matrix, min, max, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, min, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, min, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, max, max).setColor(r, g, b, a);
+        builder.addVertex(matrix, minX, maxY, minZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, minX, minY, minZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, minX, minY, maxZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, minX, maxY, maxZ).setColor(r, g, b, a);
 
         // East
-        builder.addVertex(matrix, max, max, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, min, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, min, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, max, min).setColor(r, g, b, a);
+        builder.addVertex(matrix, maxX, maxY, maxZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, maxX, minY, maxZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, maxX, minY, minZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, maxX, maxY, minZ).setColor(r, g, b, a);
 
         // North
-        builder.addVertex(matrix, max, max, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, min, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, min, min).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, max, min).setColor(r, g, b, a);
+        builder.addVertex(matrix, maxX, maxY, minZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, maxX, minY, minZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, minX, minY, minZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, minX, maxY, minZ).setColor(r, g, b, a);
 
         // South
-        builder.addVertex(matrix, min, max, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, min, min, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, min, max).setColor(r, g, b, a);
-        builder.addVertex(matrix, max, max, max).setColor(r, g, b, a);
+        builder.addVertex(matrix, minX, maxY, maxZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, minX, minY, maxZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, maxX, minY, maxZ).setColor(r, g, b, a);
+        builder.addVertex(matrix, maxX, maxY, maxZ).setColor(r, g, b, a);
     }
 
     private void renderLabel(LogisticsNodeEntity entity, String text, PoseStack poseStack, MultiBufferSource buffer,
@@ -188,7 +193,8 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
         float x = (float) (-font.width(text) / 2);
         int fullbright = 15728880;
 
-        // Two-pass rendering like vanilla nametags: SEE_THROUGH for visibility behind geometry, NORMAL for solid text
+        // Two-pass rendering like vanilla nametags: SEE_THROUGH for visibility behind
+        // geometry, NORMAL for solid text
         font.drawInBatch(text, x, 0, 0x20FFFFFF, false, poseStack.last().pose(), buffer,
                 Font.DisplayMode.SEE_THROUGH, 0x40000000, fullbright);
         font.drawInBatch(text, x, 0, 0xFFFFFFFF, false, poseStack.last().pose(), buffer,
@@ -199,7 +205,8 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
 
     private static void updateAllowedNodes(Minecraft mc) {
         long tick = mc.level.getGameTime();
-        if (tick == lastComputeTick) return;
+        if (tick == lastComputeTick)
+            return;
         lastComputeTick = tick;
 
         int limit = ClientConfig.maxRenderedNodes;
@@ -223,6 +230,13 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
             ids.add(nodes.get(i).getId());
         }
         allowedNodeIds = ids;
+    }
+
+    @Override
+    protected int getBlockLightLevel(LogisticsNodeEntity entity, BlockPos pos) {
+        // Return max lighting (15) because the model otherwise goes pitch black
+        // when placed inside a solid block (e.g. Barrel) whose light level is 0.
+        return 15;
     }
 
     @Override

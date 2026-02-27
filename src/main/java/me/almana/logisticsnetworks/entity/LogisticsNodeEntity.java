@@ -173,10 +173,9 @@ public class LogisticsNodeEntity extends Entity {
 
     @Override
     public void tick() {
-        // Enforce position at attached block center to prevent drift from any source
         BlockPos attached = getAttachedPos();
         if (!attached.equals(BlockPos.ZERO)) {
-            Vec3 target = Vec3.atCenterOf(attached);
+            Vec3 target = Vec3.atBottomCenterOf(attached);
             if (distanceToSqr(target) > 0.001) {
                 setPos(target);
             }

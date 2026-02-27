@@ -96,8 +96,7 @@ public final class NodePlacementHelper {
         if (node == null) {
             return null;
         }
-
-        node.setPos(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+        node.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
         node.setAttachedPos(pos);
         node.setValid(true);
 
@@ -108,4 +107,3 @@ public final class NodePlacementHelper {
         return node;
     }
 }
-

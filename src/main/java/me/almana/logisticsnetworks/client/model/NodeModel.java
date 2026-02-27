@@ -9,6 +9,7 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.client.renderer.RenderType;
 
 public class NodeModel<T extends Entity> extends EntityModel<T> {
 
@@ -20,6 +21,7 @@ public class NodeModel<T extends Entity> extends EntityModel<T> {
         private final ModelPart mainBody;
 
         public NodeModel(ModelPart root) {
+                super(RenderType::entityCutoutNoCull);
                 this.mainBody = root.getChild("bb_main");
         }
 
