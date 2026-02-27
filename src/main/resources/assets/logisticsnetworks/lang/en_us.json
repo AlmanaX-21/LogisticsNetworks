@@ -204,6 +204,7 @@
   "tooltip.logisticsnetworks.filter.nbt.desc": "Filters by NBT data",
   "tooltip.logisticsnetworks.filter.mod.desc": "Filters by source mod",
   "tooltip.logisticsnetworks.filter.slot.desc": "Restricts source/target inventory slots",
+  "tooltip.logisticsnetworks.filter.deprecated": "Warning: This filter's function is moved to normal filters, they will be removed",
   "item.logisticsnetworks.name_filter": "Name Filter",
   "tooltip.logisticsnetworks.filter.name.desc": "Filters items/fluids by display name",
   "tooltip.logisticsnetworks.filter.name": "Name: %s",

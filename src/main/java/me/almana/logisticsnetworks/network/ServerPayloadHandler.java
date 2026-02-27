@@ -291,6 +291,54 @@ public class ServerPayloadHandler {
         });
     }
 
+    public static void handleSetFilterEntryAmount(SetFilterEntryAmountPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player().containerMenu instanceof FilterMenu menu && !menu.isAmountMode()) {
+                menu.setEntryAmount((Player) context.player(), payload.slot(), payload.amount());
+            }
+        });
+    }
+
+    public static void handleSetFilterEntryTag(SetFilterEntryTagPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player().containerMenu instanceof FilterMenu menu && !isSpecialMode(menu)) {
+                if (payload.tag() == null || payload.tag().isEmpty()) {
+                    menu.clearEntryTag(payload.slot());
+                } else {
+                    menu.setEntryTag((Player) context.player(), payload.slot(), payload.tag());
+                }
+            }
+        });
+    }
+
+    public static void handleSetFilterEntryNbt(SetFilterEntryNbtPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player().containerMenu instanceof FilterMenu menu && !isSpecialMode(menu)) {
+                if (payload.remove()) {
+                    menu.clearEntryNbt((Player) context.player(), payload.slot());
+                } else if (!payload.rawValue().isEmpty()) {
+                    menu.setEntryNbtRaw((Player) context.player(), payload.slot(), payload.path(), payload.rawValue());
+                } else {
+                    menu.setEntryNbt((Player) context.player(), payload.slot(), payload.path());
+                }
+            }
+        });
+    }
+
+    public static void handleSetFilterEntryDurability(SetFilterEntryDurabilityPayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player().containerMenu instanceof FilterMenu menu && !isSpecialMode(menu)) {
+                if (payload.operator() == null || payload.operator().isEmpty()) {
+                    menu.clearEntryDurability((Player) context.player(), payload.slot());
+                } else {
+                    menu.setEntryDurability((Player) context.player(), payload.slot(),
+                            payload.operator(), payload.value());
+                }
+            }
+        });
+    }
+
     public static void handleSetDurabilityFilterValue(SetDurabilityFilterValuePayload payload,
             IPayloadContext context) {
         context.enqueueWork(() -> {

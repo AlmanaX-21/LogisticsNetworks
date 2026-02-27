@@ -3,6 +3,7 @@ package me.almana.logisticsnetworks.menu;
 import me.almana.logisticsnetworks.filter.*;
 import me.almana.logisticsnetworks.integration.mekanism.MekanismCompat;
 import me.almana.logisticsnetworks.item.*;
+import net.minecraft.nbt.Tag;
 import me.almana.logisticsnetworks.registration.ModTags;
 import me.almana.logisticsnetworks.registration.Registration;
 import net.minecraft.core.HolderLookup;
@@ -55,6 +56,7 @@ public class FilterMenu extends AbstractContainerMenu {
 
     private final boolean[] isFluidSlot;
     private final boolean[] isChemicalSlot;
+    private final boolean[] isTagSlot;
     private boolean ignoreUpdates = false;
 
     private String selectedTag;
@@ -74,13 +76,15 @@ public class FilterMenu extends AbstractContainerMenu {
         this.isModMode = stack.getItem() instanceof ModFilterItem;
         this.isSlotMode = stack.getItem() instanceof SlotFilterItem;
         this.isNameMode = stack.getItem() instanceof NameFilterItem;
-        this.isSpecialMode = isTagMode || isAmountMode || isNbtMode || isDurabilityMode || isModMode || isSlotMode || isNameMode;
+        this.isSpecialMode = isTagMode || isAmountMode || isNbtMode || isDurabilityMode || isModMode || isSlotMode
+                || isNameMode;
 
         this.slotCount = isSpecialMode ? 0 : Math.max(1, FilterItemData.getCapacity(stack));
         this.rows = isSpecialMode ? 0 : (int) Math.ceil(slotCount / 9.0);
         this.filterInventory = new SimpleContainer(slotCount);
         this.isFluidSlot = new boolean[slotCount];
         this.isChemicalSlot = new boolean[slotCount];
+        this.isTagSlot = new boolean[slotCount];
 
         initSyncedData(stack);
         layoutSlots(playerInv);
@@ -105,15 +109,21 @@ public class FilterMenu extends AbstractContainerMenu {
         this.isModMode = buf.readBoolean();
         this.isSlotMode = buf.readBoolean();
         this.isNameMode = buf.readBoolean();
-        this.isSpecialMode = isTagMode || isAmountMode || isNbtMode || isDurabilityMode || isModMode || isSlotMode || isNameMode;
+        this.isSpecialMode = isTagMode || isAmountMode || isNbtMode || isDurabilityMode || isModMode || isSlotMode
+                || isNameMode;
 
         this.rows = isSpecialMode ? 0 : (int) Math.ceil(slotCount / 9.0);
         this.filterInventory = new SimpleContainer(slotCount);
         this.isFluidSlot = new boolean[slotCount];
         this.isChemicalSlot = new boolean[slotCount];
+        this.isTagSlot = new boolean[slotCount];
 
         layoutSlots(playerInv);
         addDataSlots(data);
+
+        if (!isSpecialMode) {
+            loadFilterItems(getOpenedStack(), player.level().registryAccess());
+        }
     }
 
     private void initSyncedData(ItemStack stack) {
@@ -335,6 +345,114 @@ public class FilterMenu extends AbstractContainerMenu {
 
     public String getChemicalFilter(int slot) {
         return FilterItemData.getChemicalEntry(getOpenedStack(), slot);
+    }
+
+    public int getEntryAmount(int slot) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return 0;
+        return FilterItemData.getEntryAmount(getOpenedStack(), slot);
+    }
+
+    public void setEntryAmount(Player player, int slot, int amount) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return;
+        FilterItemData.setEntryAmount(getOpenedStack(), slot, Math.max(0, amount));
+        broadcastChanges();
+    }
+
+    // Per-slot tag
+    public String getEntryTag(int slot) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return null;
+        return FilterItemData.getEntryTag(getOpenedStack(), slot);
+    }
+
+    public boolean isTagSlot(int slot) {
+        return slot >= 0 && slot < slotCount && isTagSlot[slot];
+    }
+
+    public void setEntryTag(Player player, int slot, String tag) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return;
+        FilterItemData.setEntryTag(getOpenedStack(), slot, tag);
+        isTagSlot[slot] = true;
+        isFluidSlot[slot] = false;
+        isChemicalSlot[slot] = false;
+        ignoreUpdates = true;
+        filterInventory.setItem(slot, ItemStack.EMPTY);
+        ignoreUpdates = false;
+        broadcastChanges();
+    }
+
+    public void clearEntryTag(int slot) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return;
+        FilterItemData.setEntryTag(getOpenedStack(), slot, null);
+        isTagSlot[slot] = false;
+        broadcastChanges();
+    }
+
+    // Per-slot NBT
+    public String getEntryNbtPath(int slot) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return null;
+        return FilterItemData.getEntryNbtPath(getOpenedStack(), slot);
+    }
+
+    public String getEntryDurabilityOp(int slot) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return null;
+        return FilterItemData.getEntryDurabilityOp(getOpenedStack(), slot);
+    }
+
+    public int getEntryDurabilityValue(int slot) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return 0;
+        return FilterItemData.getEntryDurabilityValue(getOpenedStack(), slot);
+    }
+
+    public void setEntryNbt(Player player, int slot, String path) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return;
+        ItemStack filterStack = getOpenedStack();
+        ItemStack slotItem = FilterItemData.getEntry(filterStack, slot, player.level().registryAccess());
+        if (slotItem.isEmpty())
+            return;
+        Tag value = NbtFilterData.resolvePathValue(slotItem, path, player.level().registryAccess());
+        if (value == null)
+            return;
+        FilterItemData.setEntryNbt(filterStack, slot, path, value);
+        broadcastChanges();
+    }
+
+    public void setEntryNbtRaw(Player player, int slot, String path, String rawValue) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return;
+        FilterItemData.setEntryNbtRaw(getOpenedStack(), slot, rawValue);
+        broadcastChanges();
+    }
+
+    public void clearEntryNbt(Player player, int slot) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return;
+        FilterItemData.setEntryNbt(getOpenedStack(), slot, null, null);
+        FilterItemData.setEntryNbtRaw(getOpenedStack(), slot, null);
+        broadcastChanges();
+    }
+
+    // Per-slot durability
+    public void setEntryDurability(Player player, int slot, String op, int value) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return;
+        FilterItemData.setEntryDurability(getOpenedStack(), slot, op, value);
+        broadcastChanges();
+    }
+
+    public void clearEntryDurability(Player player, int slot) {
+        if (isSpecialMode || slot < 0 || slot >= slotCount)
+            return;
+        FilterItemData.setEntryDurability(getOpenedStack(), slot, null, 0);
+        broadcastChanges();
     }
 
     public void setAmountValue(Player player, int amount) {
@@ -594,8 +712,12 @@ public class FilterMenu extends AbstractContainerMenu {
             FilterItemData.setEntry(stack, s, ItemStack.EMPTY, player.level().registryAccess());
             FilterItemData.setFluidEntry(stack, s, FluidStack.EMPTY);
             FilterItemData.setChemicalEntry(stack, s, null);
+            FilterItemData.setEntryTag(stack, s, null);
+            FilterItemData.setEntryNbt(stack, s, null, null);
+            FilterItemData.setEntryDurability(stack, s, null, 0);
             isFluidSlot[s] = false;
             isChemicalSlot[s] = false;
+            isTagSlot[s] = false;
             filterInventory.setItem(s, ItemStack.EMPTY);
         });
     }
@@ -800,17 +922,26 @@ public class FilterMenu extends AbstractContainerMenu {
 
     private void loadFilterItems(ItemStack stack, HolderLookup.Provider provider) {
         for (int i = 0; i < slotCount; i++) {
+            String tag = FilterItemData.getEntryTag(stack, i);
             FluidStack fluid = FilterItemData.getFluidEntry(stack, i);
             String chemical = FilterItemData.getChemicalEntry(stack, i);
-            if (!fluid.isEmpty()) {
+            if (tag != null) {
+                isTagSlot[i] = true;
+                isFluidSlot[i] = false;
+                isChemicalSlot[i] = false;
+                filterInventory.setItem(i, ItemStack.EMPTY);
+            } else if (!fluid.isEmpty()) {
+                isTagSlot[i] = false;
                 isFluidSlot[i] = true;
                 isChemicalSlot[i] = false;
                 filterInventory.setItem(i, ItemStack.EMPTY);
             } else if (chemical != null) {
+                isTagSlot[i] = false;
                 isFluidSlot[i] = false;
                 isChemicalSlot[i] = true;
                 filterInventory.setItem(i, ItemStack.EMPTY);
             } else {
+                isTagSlot[i] = false;
                 isFluidSlot[i] = false;
                 isChemicalSlot[i] = false;
                 filterInventory.setItem(i, FilterItemData.getEntry(stack, i, provider));
@@ -821,11 +952,13 @@ public class FilterMenu extends AbstractContainerMenu {
     private void saveFilterItems(ItemStack stack, HolderLookup.Provider provider) {
         FilterItemData.setBlacklist(stack, isBlacklistMode());
         for (int i = 0; i < slotCount; i++) {
-            if (isFluidSlot[i]) {
+            if (isTagSlot[i] || isChemicalSlot[i]) {
+                // data lives in NBT already
+            } else if (FilterItemData.hasEntryNbt(stack, i)) {
+                // NBT filter data lives in NBT already
+            } else if (isFluidSlot[i]) {
                 FluidStack fluid = FilterItemData.getFluidEntry(stack, i);
                 FilterItemData.setFluidEntry(stack, i, fluid);
-            } else if (isChemicalSlot[i]) {
-
             } else {
                 FilterItemData.setEntry(stack, i, filterInventory.getItem(i), provider);
             }

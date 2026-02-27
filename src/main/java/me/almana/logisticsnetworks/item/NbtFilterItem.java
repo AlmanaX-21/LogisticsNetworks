@@ -18,50 +18,55 @@ import java.util.List;
 
 public class NbtFilterItem extends Item {
 
-    public NbtFilterItem(Properties properties) {
-        super(properties);
-    }
-
-    @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        ItemStack stack = player.getItemInHand(hand);
-        if (player instanceof ServerPlayer serverPlayer) {
-            serverPlayer.openMenu(new SimpleMenuProvider(
-                    (containerId, playerInventory, ignored) -> new FilterMenu(containerId, playerInventory, hand),
-                    stack.getHoverName()), buf -> {
-                        buf.writeVarInt(hand.ordinal());
-                        buf.writeVarInt(0);
-                        buf.writeBoolean(false);
-                        buf.writeBoolean(false);
-                        buf.writeBoolean(true);
-                        buf.writeBoolean(false);
-                        buf.writeBoolean(false);
-                        buf.writeBoolean(false);
-                        buf.writeBoolean(false);
-                    });
+        public NbtFilterItem(Properties properties) {
+                super(properties);
         }
-        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
-    }
 
-    @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        boolean blacklist = NbtFilterData.isBlacklist(stack);
-        String selection = NbtFilterData.hasSelection(stack)
-                ? NbtFilterData.getSelectedPath(stack)
-                : Component.translatable("tooltip.logisticsnetworks.filter.nbt.none").getString();
+        @Override
+        public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+                ItemStack stack = player.getItemInHand(hand);
+                if (player instanceof ServerPlayer serverPlayer) {
+                        serverPlayer.openMenu(new SimpleMenuProvider(
+                                        (containerId, playerInventory, ignored) -> new FilterMenu(containerId,
+                                                        playerInventory, hand),
+                                        stack.getHoverName()), buf -> {
+                                                buf.writeVarInt(hand.ordinal());
+                                                buf.writeVarInt(0);
+                                                buf.writeBoolean(false);
+                                                buf.writeBoolean(false);
+                                                buf.writeBoolean(true);
+                                                buf.writeBoolean(false);
+                                                buf.writeBoolean(false);
+                                                buf.writeBoolean(false);
+                                                buf.writeBoolean(false);
+                                        });
+                }
+                return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+        }
 
-        tooltip.add(Component.translatable("tooltip.logisticsnetworks.filter.nbt.desc")
-                .withStyle(ChatFormatting.GRAY));
+        @Override
+        public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip,
+                        TooltipFlag flag) {
+                tooltip.add(Component.translatable("tooltip.logisticsnetworks.filter.deprecated")
+                                .withStyle(ChatFormatting.RED));
 
-        tooltip.add(Component.translatable(
-                blacklist ? "tooltip.logisticsnetworks.filter.mode.blacklist"
-                        : "tooltip.logisticsnetworks.filter.mode.whitelist")
-                .withStyle(ChatFormatting.GRAY));
+                boolean blacklist = NbtFilterData.isBlacklist(stack);
+                String selection = NbtFilterData.hasSelection(stack)
+                                ? NbtFilterData.getSelectedPath(stack)
+                                : Component.translatable("tooltip.logisticsnetworks.filter.nbt.none").getString();
 
-        tooltip.add(Component.translatable("tooltip.logisticsnetworks.filter.nbt", selection)
-                .withStyle(ChatFormatting.DARK_GRAY));
+                tooltip.add(Component.translatable("tooltip.logisticsnetworks.filter.nbt.desc")
+                                .withStyle(ChatFormatting.GRAY));
 
-        tooltip.add(Component.translatable("tooltip.logisticsnetworks.filter.open_hint")
-                .withStyle(ChatFormatting.DARK_GRAY));
-    }
+                tooltip.add(Component.translatable(
+                                blacklist ? "tooltip.logisticsnetworks.filter.mode.blacklist"
+                                                : "tooltip.logisticsnetworks.filter.mode.whitelist")
+                                .withStyle(ChatFormatting.GRAY));
+
+                tooltip.add(Component.translatable("tooltip.logisticsnetworks.filter.nbt", selection)
+                                .withStyle(ChatFormatting.DARK_GRAY));
+
+                tooltip.add(Component.translatable("tooltip.logisticsnetworks.filter.open_hint")
+                                .withStyle(ChatFormatting.DARK_GRAY));
+        }
 }

@@ -1,5 +1,6 @@
 package me.almana.logisticsnetworks.filter;
 
+import me.almana.logisticsnetworks.integration.mekanism.MekanismCompat;
 import me.almana.logisticsnetworks.item.BaseFilterItem;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
@@ -23,6 +24,13 @@ public final class FilterItemData {
     private static final String KEY_ITEM_TAG = "item";
     private static final String KEY_FLUID_ID = "fluid";
     private static final String KEY_CHEMICAL_ID = "chemical";
+    private static final String KEY_AMOUNT = "amount";
+    private static final String KEY_TAG = "tag";
+    private static final String KEY_NBT_PATH = "nbt_path";
+    private static final String KEY_NBT_VALUE = "nbt_val";
+    private static final String KEY_DUR_OP = "dur_op";
+    private static final String KEY_DUR_VAL = "dur_val";
+    private static final String KEY_NBT_RAW = "nbt_raw";
 
     private FilterItemData() {
     }
@@ -100,6 +108,7 @@ public final class FilterItemData {
             return;
 
         ItemStack item = (value == null || value.isEmpty()) ? ItemStack.EMPTY : value.copyWithCount(1);
+        int existingAmount = getEntryAmount(stack, slot);
 
         updateRoot(stack, root -> {
             ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
@@ -109,6 +118,9 @@ public final class FilterItemData {
                 CompoundTag entry = new CompoundTag();
                 entry.putInt(KEY_SLOT, slot);
                 entry.put(KEY_ITEM_TAG, item.save(provider));
+                if (existingAmount > 0) {
+                    entry.putInt(KEY_AMOUNT, existingAmount);
+                }
                 list.add(entry);
             }
 
@@ -151,6 +163,7 @@ public final class FilterItemData {
         ResourceLocation id = (fluid != null && !fluid.isEmpty())
                 ? BuiltInRegistries.FLUID.getKey(fluid.getFluid())
                 : null;
+        int existingAmount = getEntryAmount(stack, slot);
 
         updateRoot(stack, root -> {
             ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
@@ -160,6 +173,9 @@ public final class FilterItemData {
                 CompoundTag entry = new CompoundTag();
                 entry.putInt(KEY_SLOT, slot);
                 entry.putString(KEY_FLUID_ID, id.toString());
+                if (existingAmount > 0) {
+                    entry.putInt(KEY_AMOUNT, existingAmount);
+                }
                 list.add(entry);
             }
 
@@ -294,6 +310,8 @@ public final class FilterItemData {
         if (slot < 0 || slot >= getCapacity(stack))
             return;
 
+        int existingAmount = getEntryAmount(stack, slot);
+
         updateRoot(stack, root -> {
             ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
             removeFromList(list, slot);
@@ -302,6 +320,9 @@ public final class FilterItemData {
                 CompoundTag entry = new CompoundTag();
                 entry.putInt(KEY_SLOT, slot);
                 entry.putString(KEY_CHEMICAL_ID, chemicalId);
+                if (existingAmount > 0) {
+                    entry.putInt(KEY_AMOUNT, existingAmount);
+                }
                 list.add(entry);
             }
 
@@ -329,6 +350,540 @@ public final class FilterItemData {
 
     public static boolean hasAnyChemicalEntries(ItemStack stack) {
         return hasEntryType(stack, KEY_CHEMICAL_ID);
+    }
+
+    // ── Tag per-slot methods ──
+
+    @Nullable
+    public static String getEntryTag(ItemStack stack, int slot) {
+        if (!isFilterItem(stack))
+            return null;
+        CompoundTag root = getRoot(stack);
+        ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+        for (Tag t : list) {
+            if (t instanceof CompoundTag entry && entry.getInt(KEY_SLOT) == slot) {
+                if (entry.contains(KEY_TAG, Tag.TAG_STRING)) {
+                    return entry.getString(KEY_TAG);
+                }
+            }
+        }
+        return null;
+    }
+
+    public static void setEntryTag(ItemStack stack, int slot, @Nullable String tag) {
+        if (!isFilterItem(stack))
+            return;
+        if (slot < 0 || slot >= getCapacity(stack))
+            return;
+
+        int existingAmount = getEntryAmount(stack, slot);
+
+        updateRoot(stack, root -> {
+            ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+            removeFromList(list, slot);
+
+            if (tag != null && !tag.isEmpty()) {
+                CompoundTag entry = new CompoundTag();
+                entry.putInt(KEY_SLOT, slot);
+                entry.putString(KEY_TAG, tag);
+                if (existingAmount > 0) {
+                    entry.putInt(KEY_AMOUNT, existingAmount);
+                }
+                list.add(entry);
+            }
+
+            if (list.isEmpty()) {
+                root.remove(KEY_ITEMS);
+            } else {
+                root.put(KEY_ITEMS, list);
+            }
+        });
+    }
+
+    public static boolean isTagEntry(ItemStack stack, int slot) {
+        return getEntryTag(stack, slot) != null;
+    }
+
+    public static boolean hasAnyTagEntries(ItemStack stack) {
+        return hasEntryType(stack, KEY_TAG);
+    }
+
+    // ── NBT per-slot methods ──
+
+    @Nullable
+    public static String getEntryNbtPath(ItemStack stack, int slot) {
+        if (!isFilterItem(stack))
+            return null;
+        CompoundTag root = getRoot(stack);
+        ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+        for (Tag t : list) {
+            if (t instanceof CompoundTag entry && entry.getInt(KEY_SLOT) == slot) {
+                if (entry.contains(KEY_NBT_PATH, Tag.TAG_STRING)) {
+                    return entry.getString(KEY_NBT_PATH);
+                }
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    public static Tag getEntryNbtValue(ItemStack stack, int slot) {
+        if (!isFilterItem(stack))
+            return null;
+        CompoundTag root = getRoot(stack);
+        ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+        for (Tag t : list) {
+            if (t instanceof CompoundTag entry && entry.getInt(KEY_SLOT) == slot) {
+                if (entry.contains(KEY_NBT_VALUE)) {
+                    return entry.get(KEY_NBT_VALUE);
+                }
+            }
+        }
+        return null;
+    }
+
+    public static void setEntryNbt(ItemStack stack, int slot, @Nullable String path, @Nullable Tag value) {
+        if (!isFilterItem(stack))
+            return;
+        if (slot < 0 || slot >= getCapacity(stack))
+            return;
+
+        updateRoot(stack, root -> {
+            ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+            for (Tag t : list) {
+                if (t instanceof CompoundTag entry && entry.getInt(KEY_SLOT) == slot) {
+                    if (path != null && !path.isEmpty() && value != null) {
+                        entry.putString(KEY_NBT_PATH, path);
+                        entry.put(KEY_NBT_VALUE, value.copy());
+                    } else {
+                        entry.remove(KEY_NBT_PATH);
+                        entry.remove(KEY_NBT_VALUE);
+                    }
+                    root.put(KEY_ITEMS, list);
+                    return;
+                }
+            }
+        });
+    }
+
+    public static boolean hasEntryNbt(ItemStack stack, int slot) {
+        return getEntryNbtPath(stack, slot) != null || getEntryNbtRaw(stack, slot) != null;
+    }
+
+    @Nullable
+    public static String getEntryNbtRaw(ItemStack stack, int slot) {
+        if (!isFilterItem(stack))
+            return null;
+        CompoundTag root = getRoot(stack);
+        ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+        for (Tag t : list) {
+            if (t instanceof CompoundTag entry && entry.getInt(KEY_SLOT) == slot) {
+                if (entry.contains(KEY_NBT_RAW, Tag.TAG_STRING)) {
+                    String raw = entry.getString(KEY_NBT_RAW);
+                    return raw.isEmpty() ? null : raw;
+                }
+            }
+        }
+        return null;
+    }
+
+    public static void setEntryNbtRaw(ItemStack stack, int slot, @Nullable String rawSnbt) {
+        if (!isFilterItem(stack))
+            return;
+        if (slot < 0 || slot >= getCapacity(stack))
+            return;
+
+        updateRoot(stack, root -> {
+            ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+            for (Tag t : list) {
+                if (t instanceof CompoundTag entry && entry.getInt(KEY_SLOT) == slot) {
+                    entry.remove(KEY_NBT_PATH);
+                    entry.remove(KEY_NBT_VALUE);
+                    if (rawSnbt != null && !rawSnbt.isEmpty()) {
+                        entry.putString(KEY_NBT_RAW, rawSnbt);
+                    } else {
+                        entry.remove(KEY_NBT_RAW);
+                    }
+                    root.put(KEY_ITEMS, list);
+                    return;
+                }
+            }
+            // No entry exists yet, create one
+            if (rawSnbt != null && !rawSnbt.isEmpty()) {
+                CompoundTag entry = new CompoundTag();
+                entry.putInt(KEY_SLOT, slot);
+                entry.putString(KEY_NBT_RAW, rawSnbt);
+                list.add(entry);
+                root.put(KEY_ITEMS, list);
+            }
+        });
+    }
+
+    public static boolean hasAnyNbtEntries(ItemStack stack) {
+        return hasEntryType(stack, KEY_NBT_PATH) || hasEntryType(stack, KEY_NBT_RAW);
+    }
+
+    public static boolean isNbtOnlySlot(ItemStack stack, int slot) {
+        if (!hasEntryNbt(stack, slot))
+            return false;
+        return getEntryTag(stack, slot) == null
+                && getEntry(stack, slot, null).isEmpty()
+                && getFluidEntry(stack, slot).isEmpty();
+    }
+
+    // ── Durability per-slot methods ──
+
+    @Nullable
+    public static String getEntryDurabilityOp(ItemStack stack, int slot) {
+        if (!isFilterItem(stack))
+            return null;
+        CompoundTag root = getRoot(stack);
+        ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+        for (Tag t : list) {
+            if (t instanceof CompoundTag entry && entry.getInt(KEY_SLOT) == slot) {
+                if (entry.contains(KEY_DUR_OP, Tag.TAG_STRING)) {
+                    return entry.getString(KEY_DUR_OP);
+                }
+            }
+        }
+        return null;
+    }
+
+    public static int getEntryDurabilityValue(ItemStack stack, int slot) {
+        if (!isFilterItem(stack))
+            return 0;
+        CompoundTag root = getRoot(stack);
+        ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+        for (Tag t : list) {
+            if (t instanceof CompoundTag entry && entry.getInt(KEY_SLOT) == slot) {
+                if (entry.contains(KEY_DUR_VAL, Tag.TAG_INT)) {
+                    return entry.getInt(KEY_DUR_VAL);
+                }
+            }
+        }
+        return 0;
+    }
+
+    public static void setEntryDurability(ItemStack stack, int slot, @Nullable String op, int value) {
+        if (!isFilterItem(stack))
+            return;
+        if (slot < 0 || slot >= getCapacity(stack))
+            return;
+
+        updateRoot(stack, root -> {
+            ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+            for (Tag t : list) {
+                if (t instanceof CompoundTag entry && entry.getInt(KEY_SLOT) == slot) {
+                    if (op != null && !op.isEmpty()) {
+                        entry.putString(KEY_DUR_OP, op);
+                        entry.putInt(KEY_DUR_VAL, Math.max(0, Math.min(3000, value)));
+                    } else {
+                        entry.remove(KEY_DUR_OP);
+                        entry.remove(KEY_DUR_VAL);
+                    }
+                    root.put(KEY_ITEMS, list);
+                    return;
+                }
+            }
+        });
+    }
+
+    public static boolean hasEntryDurability(ItemStack stack, int slot) {
+        return getEntryDurabilityOp(stack, slot) != null;
+    }
+
+    // ── Full matching methods (tag + NBT + durability aware) ──
+
+    public static boolean containsItemFull(ItemStack filter, ItemStack candidate, HolderLookup.Provider provider) {
+        if (!isFilterItem(filter) || candidate.isEmpty())
+            return false;
+
+        int cap = getCapacity(filter);
+        for (int i = 0; i < cap; i++) {
+            String tag = getEntryTag(filter, i);
+            if (tag != null) {
+                if (candidate.getTags().map(t -> t.location().toString()).anyMatch(tag::equals)) {
+                    return true;
+                }
+                continue;
+            }
+
+            // NBT-only slot
+            if (isNbtOnlySlot(filter, i)) {
+                CompoundTag components = NbtFilterData.getSerializedComponents(candidate, provider);
+                if (checkNbtConstraint(filter, i, components))
+                    return true;
+                continue;
+            }
+
+            ItemStack entry = getEntry(filter, i, provider);
+            if (!entry.isEmpty() && ItemStack.isSameItem(entry, candidate)) {
+                if (!checkNbtConstraint(filter, i, NbtFilterData.getSerializedComponents(candidate, provider)))
+                    continue;
+                if (!checkDurabilityConstraint(filter, i, candidate))
+                    continue;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean containsFluidFull(ItemStack filter, FluidStack candidate, HolderLookup.Provider provider) {
+        if (!isFilterItem(filter) || candidate.isEmpty())
+            return false;
+
+        int cap = getCapacity(filter);
+        for (int i = 0; i < cap; i++) {
+            String tag = getEntryTag(filter, i);
+            if (tag != null) {
+                if (candidate.getTags().map(t -> t.location().toString()).anyMatch(tag::equals)) {
+                    return true;
+                }
+                continue;
+            }
+
+            FluidStack entry = getFluidEntry(filter, i);
+            if (!entry.isEmpty() && FluidStack.isSameFluidSameComponents(entry, candidate)) {
+                if (!checkNbtConstraint(filter, i, NbtFilterData.getSerializedComponents(candidate, provider)))
+                    continue;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean containsChemicalFull(ItemStack filter, String chemicalId) {
+        if (!isFilterItem(filter) || chemicalId == null || chemicalId.isEmpty())
+            return false;
+
+        int cap = getCapacity(filter);
+        for (int i = 0; i < cap; i++) {
+            String tag = getEntryTag(filter, i);
+            if (tag != null) {
+                if (MekanismCompat.chemicalHasTag(chemicalId, tag))
+                    return true;
+                continue;
+            }
+
+            String entry = getChemicalEntry(filter, i);
+            if (entry != null && entry.equals(chemicalId))
+                return true;
+        }
+        return false;
+    }
+
+    // ── Full amount threshold methods (tag-aware + constraint-aware) ──
+
+    public static int getItemAmountThresholdFull(ItemStack filter, ItemStack candidate,
+            HolderLookup.Provider provider) {
+        if (!isFilterItem(filter) || candidate.isEmpty())
+            return 0;
+        int cap = getCapacity(filter);
+        for (int i = 0; i < cap; i++) {
+            String tag = getEntryTag(filter, i);
+            if (tag != null) {
+                if (candidate.getTags().map(t -> t.location().toString()).anyMatch(tag::equals))
+                    return getEntryAmount(filter, i);
+                continue;
+            }
+
+            ItemStack entry = getEntry(filter, i, provider);
+            if (!entry.isEmpty() && ItemStack.isSameItem(entry, candidate)) {
+                if (!checkNbtConstraint(filter, i, NbtFilterData.getSerializedComponents(candidate, provider)))
+                    continue;
+                if (!checkDurabilityConstraint(filter, i, candidate))
+                    continue;
+                return getEntryAmount(filter, i);
+            }
+        }
+        return 0;
+    }
+
+    public static int getFluidAmountThresholdFull(ItemStack filter, FluidStack candidate,
+            HolderLookup.Provider provider) {
+        if (!isFilterItem(filter) || candidate.isEmpty())
+            return 0;
+        int cap = getCapacity(filter);
+        for (int i = 0; i < cap; i++) {
+            String tag = getEntryTag(filter, i);
+            if (tag != null) {
+                if (candidate.getTags().map(t -> t.location().toString()).anyMatch(tag::equals))
+                    return getEntryAmount(filter, i);
+                continue;
+            }
+
+            FluidStack entry = getFluidEntry(filter, i);
+            if (!entry.isEmpty() && FluidStack.isSameFluidSameComponents(entry, candidate))
+                return getEntryAmount(filter, i);
+        }
+        return 0;
+    }
+
+    public static int getChemicalAmountThresholdFull(ItemStack filter, String chemicalId) {
+        if (!isFilterItem(filter) || chemicalId == null || chemicalId.isEmpty())
+            return 0;
+        int cap = getCapacity(filter);
+        for (int i = 0; i < cap; i++) {
+            String tag = getEntryTag(filter, i);
+            if (tag != null) {
+                if (MekanismCompat.chemicalHasTag(chemicalId, tag))
+                    return getEntryAmount(filter, i);
+                continue;
+            }
+
+            String entry = getChemicalEntry(filter, i);
+            if (entry != null && entry.equals(chemicalId))
+                return getEntryAmount(filter, i);
+        }
+        return 0;
+    }
+
+    // ── Constraint helpers ──
+
+    private static boolean checkNbtConstraint(ItemStack filter, int slot, @Nullable CompoundTag components) {
+        if (!hasEntryNbt(filter, slot))
+            return true;
+        if (components == null)
+            return false;
+
+        // Raw SNBT mode
+        String raw = getEntryNbtRaw(filter, slot);
+        if (raw != null) {
+            try {
+                CompoundTag expected = net.minecraft.nbt.TagParser.parseTag(raw);
+                return compoundContains(components, expected);
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        // Legacy path mode
+        String nbtPath = getEntryNbtPath(filter, slot);
+        Tag nbtExpected = getEntryNbtValue(filter, slot);
+        if (nbtPath == null || nbtExpected == null)
+            return true;
+        Tag actual = NbtFilterData.resolvePathValue(components, nbtPath);
+        return actual != null && nbtExpected.equals(actual);
+    }
+
+    private static boolean compoundContains(CompoundTag actual, CompoundTag expected) {
+        for (String key : expected.getAllKeys()) {
+            Tag expectedVal = expected.get(key);
+            Tag actualVal = actual.get(key);
+            if (actualVal == null || expectedVal == null)
+                return false;
+            if (expectedVal instanceof CompoundTag ec && actualVal instanceof CompoundTag ac) {
+                if (!compoundContains(ac, ec))
+                    return false;
+            } else if (!expectedVal.equals(actualVal)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean checkDurabilityConstraint(ItemStack filter, int slot, ItemStack candidate) {
+        if (!hasEntryDurability(filter, slot))
+            return true;
+        String durOp = getEntryDurabilityOp(filter, slot);
+        if (durOp == null || !candidate.isDamageableItem())
+            return true;
+        int durVal = getEntryDurabilityValue(filter, slot);
+        int remaining = candidate.getMaxDamage() - candidate.getDamageValue();
+        DurabilityFilterData.Operator op = DurabilityFilterData.Operator.fromId(durOp);
+        return switch (op) {
+            case LESS_OR_EQUAL -> remaining <= durVal;
+            case EQUAL -> remaining == durVal;
+            case GREATER_OR_EQUAL -> remaining >= durVal;
+        };
+    }
+
+    public static int getEntryAmount(ItemStack stack, int slot) {
+        if (!isFilterItem(stack))
+            return 0;
+
+        CompoundTag root = getRoot(stack);
+        ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+
+        for (Tag t : list) {
+            if (t instanceof CompoundTag entry && entry.getInt(KEY_SLOT) == slot) {
+                return entry.contains(KEY_AMOUNT, Tag.TAG_INT) ? entry.getInt(KEY_AMOUNT) : 0;
+            }
+        }
+        return 0;
+    }
+
+    public static void setEntryAmount(ItemStack stack, int slot, int amount) {
+        if (!isFilterItem(stack))
+            return;
+        if (slot < 0 || slot >= getCapacity(stack))
+            return;
+
+        updateRoot(stack, root -> {
+            ListTag list = root.getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+
+            for (Tag t : list) {
+                if (t instanceof CompoundTag entry && entry.getInt(KEY_SLOT) == slot) {
+                    if (amount <= 0) {
+                        entry.remove(KEY_AMOUNT);
+                    } else {
+                        entry.putInt(KEY_AMOUNT, amount);
+                    }
+                    root.put(KEY_ITEMS, list);
+                    return;
+                }
+            }
+        });
+    }
+
+    public static boolean hasAnyAmountEntries(ItemStack stack) {
+        if (!isFilterItem(stack))
+            return false;
+        ListTag list = getRoot(stack).getList(KEY_ITEMS, Tag.TAG_COMPOUND);
+        for (Tag t : list) {
+            if (t instanceof CompoundTag c && c.contains(KEY_AMOUNT, Tag.TAG_INT) && c.getInt(KEY_AMOUNT) > 0)
+                return true;
+        }
+        return false;
+    }
+
+    public static int getItemAmountThreshold(ItemStack filter, ItemStack candidate, HolderLookup.Provider provider) {
+        if (!isFilterItem(filter) || candidate.isEmpty())
+            return 0;
+        int cap = getCapacity(filter);
+        for (int i = 0; i < cap; i++) {
+            ItemStack entry = getEntry(filter, i, provider);
+            if (!entry.isEmpty() && ItemStack.isSameItem(entry, candidate)) {
+                return getEntryAmount(filter, i);
+            }
+        }
+        return 0;
+    }
+
+    public static int getFluidAmountThreshold(ItemStack filter, FluidStack candidate) {
+        if (!isFilterItem(filter) || candidate.isEmpty())
+            return 0;
+        int cap = getCapacity(filter);
+        for (int i = 0; i < cap; i++) {
+            FluidStack entry = getFluidEntry(filter, i);
+            if (!entry.isEmpty() && FluidStack.isSameFluidSameComponents(entry, candidate)) {
+                return getEntryAmount(filter, i);
+            }
+        }
+        return 0;
+    }
+
+    public static int getChemicalAmountThreshold(ItemStack filter, String chemicalId) {
+        if (!isFilterItem(filter) || chemicalId == null || chemicalId.isEmpty())
+            return 0;
+        int cap = getCapacity(filter);
+        for (int i = 0; i < cap; i++) {
+            String entry = getChemicalEntry(filter, i);
+            if (entry != null && entry.equals(chemicalId)) {
+                return getEntryAmount(filter, i);
+            }
+        }
+        return 0;
     }
 
     private static void removeFromList(ListTag list, int slot) {

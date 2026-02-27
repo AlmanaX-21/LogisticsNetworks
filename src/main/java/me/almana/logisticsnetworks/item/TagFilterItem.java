@@ -45,6 +45,9 @@ public class TagFilterItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+        tooltip.add(Component.translatable("tooltip.logisticsnetworks.filter.deprecated")
+                .withStyle(ChatFormatting.RED));
+
         boolean blacklist = TagFilterData.isBlacklist(stack);
         int tagCount = TagFilterData.getTagFilterCount(stack);
 
