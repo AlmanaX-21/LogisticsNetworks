@@ -3,7 +3,7 @@ package me.almana.logisticsnetworks.network;
 import me.almana.logisticsnetworks.data.*;
 import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
 import me.almana.logisticsnetworks.filter.*;
-import me.almana.logisticsnetworks.item.WrenchItem;
+import me.almana.logisticsnetworks.item.*;
 import me.almana.logisticsnetworks.menu.FilterMenu;
 import me.almana.logisticsnetworks.menu.NodeMenu;
 import me.almana.logisticsnetworks.menu.PatternSetterMenu;
@@ -16,6 +16,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
@@ -482,6 +483,46 @@ public class ServerPayloadHandler {
             if (context.player().containerMenu instanceof FilterMenu menu && menu.isNameMode()) {
                 menu.setNameExpression((Player) context.player(), payload.name());
             }
+        });
+    }
+
+    public static void handleOpenFilterInSlot(OpenFilterInSlotPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer serverPlayer))
+                return;
+
+            int slotIndex = payload.slotIndex();
+            if (slotIndex < 0 || slotIndex >= serverPlayer.getInventory().getContainerSize())
+                return;
+
+            ItemStack stack = serverPlayer.getInventory().getItem(slotIndex);
+            if (stack.isEmpty() || !stack.is(ModTags.FILTERS))
+                return;
+
+            boolean isTag = stack.getItem() instanceof TagFilterItem;
+            boolean isAmount = stack.getItem() instanceof AmountFilterItem;
+            boolean isNbt = stack.getItem() instanceof NbtFilterItem;
+            boolean isDurability = stack.getItem() instanceof DurabilityFilterItem;
+            boolean isMod = stack.getItem() instanceof ModFilterItem;
+            boolean isSlot = stack.getItem() instanceof SlotFilterItem;
+            boolean isName = stack.getItem() instanceof NameFilterItem;
+            boolean isSpecial = isTag || isAmount || isNbt || isDurability || isMod || isSlot || isName;
+            int slotCount = isSpecial ? 0 : Math.max(1, FilterItemData.getCapacity(stack));
+
+            serverPlayer.openMenu(new SimpleMenuProvider(
+                    (id, inv, p) -> new FilterMenu(id, inv, slotIndex),
+                    stack.getHoverName()), buf -> {
+                        buf.writeVarInt(-1);
+                        buf.writeVarInt(slotIndex);
+                        buf.writeVarInt(slotCount);
+                        buf.writeBoolean(isTag);
+                        buf.writeBoolean(isAmount);
+                        buf.writeBoolean(isNbt);
+                        buf.writeBoolean(isDurability);
+                        buf.writeBoolean(isMod);
+                        buf.writeBoolean(isSlot);
+                        buf.writeBoolean(isName);
+                    });
         });
     }
 

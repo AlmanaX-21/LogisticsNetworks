@@ -28,6 +28,7 @@ public class FilterMenu extends AbstractContainerMenu {
     private static final int ID_TOGGLE_MODE = 0;
     private static final int ID_CYCLE_DURABILITY = 7;
     private static final int ID_CYCLE_TARGET = 8;
+    private static final int ID_CYCLE_NAME_SCOPE = 9;
 
     private static final int FILTER_COLS = 9;
     private static final int FILTER_X = 8;
@@ -51,6 +52,7 @@ public class FilterMenu extends AbstractContainerMenu {
     private final SimpleContainer extractorInventory = new SimpleContainer(1);
     private final ContainerData data = new SimpleContainerData(4);
     private final int lockedSlot;
+    private final int inventorySlotIndex;
     private int playerSlotStart = -1;
     private int playerSlotEnd = -1;
 
@@ -62,10 +64,41 @@ public class FilterMenu extends AbstractContainerMenu {
     private String selectedTag;
     private String selectedMod;
 
+    public FilterMenu(int containerId, Inventory playerInv, int inventorySlotIndex) {
+        super(Registration.FILTER_MENU.get(), containerId);
+        this.hand = InteractionHand.MAIN_HAND;
+        this.player = playerInv.player;
+        this.inventorySlotIndex = inventorySlotIndex;
+        this.lockedSlot = inventorySlotIndex;
+
+        ItemStack stack = getOpenedStack();
+        this.isTagMode = stack.getItem() instanceof TagFilterItem;
+        this.isAmountMode = stack.getItem() instanceof AmountFilterItem;
+        this.isNbtMode = stack.getItem() instanceof NbtFilterItem;
+        this.isDurabilityMode = stack.getItem() instanceof DurabilityFilterItem;
+        this.isModMode = stack.getItem() instanceof ModFilterItem;
+        this.isSlotMode = stack.getItem() instanceof SlotFilterItem;
+        this.isNameMode = stack.getItem() instanceof NameFilterItem;
+        this.isSpecialMode = isTagMode || isAmountMode || isNbtMode || isDurabilityMode || isModMode || isSlotMode
+                || isNameMode;
+
+        this.slotCount = isSpecialMode ? 0 : Math.max(1, FilterItemData.getCapacity(stack));
+        this.rows = isSpecialMode ? 0 : (int) Math.ceil(slotCount / 9.0);
+        this.filterInventory = new SimpleContainer(slotCount);
+        this.isFluidSlot = new boolean[slotCount];
+        this.isChemicalSlot = new boolean[slotCount];
+        this.isTagSlot = new boolean[slotCount];
+
+        initSyncedData(stack);
+        layoutSlots(playerInv);
+        addDataSlots(data);
+    }
+
     public FilterMenu(int containerId, Inventory playerInv, InteractionHand hand) {
         super(Registration.FILTER_MENU.get(), containerId);
         this.hand = hand;
         this.player = playerInv.player;
+        this.inventorySlotIndex = -1;
         this.lockedSlot = (hand == InteractionHand.MAIN_HAND) ? playerInv.selected : -1;
 
         ItemStack stack = getOpenedStack();
@@ -94,11 +127,18 @@ public class FilterMenu extends AbstractContainerMenu {
     public FilterMenu(int containerId, Inventory playerInv, FriendlyByteBuf buf) {
         super(Registration.FILTER_MENU.get(), containerId);
         int handOrdinal = buf.readVarInt();
-        this.hand = (handOrdinal >= 0 && handOrdinal < InteractionHand.values().length)
-                ? InteractionHand.values()[handOrdinal]
-                : InteractionHand.MAIN_HAND;
+        if (handOrdinal == -1) {
+            this.inventorySlotIndex = buf.readVarInt();
+            this.hand = InteractionHand.MAIN_HAND;
+            this.lockedSlot = inventorySlotIndex;
+        } else {
+            this.inventorySlotIndex = -1;
+            this.hand = (handOrdinal >= 0 && handOrdinal < InteractionHand.values().length)
+                    ? InteractionHand.values()[handOrdinal]
+                    : InteractionHand.MAIN_HAND;
+            this.lockedSlot = (hand == InteractionHand.MAIN_HAND) ? playerInv.selected : -1;
+        }
         this.player = playerInv.player;
-        this.lockedSlot = (hand == InteractionHand.MAIN_HAND) ? playerInv.selected : -1;
 
         this.slotCount = Math.max(0, buf.readVarInt());
 
@@ -152,7 +192,7 @@ public class FilterMenu extends AbstractContainerMenu {
         } else if (isNameMode) {
             data.set(0, NameFilterData.isBlacklist(stack) ? 1 : 0);
             data.set(1, NameFilterData.getTargetType(stack).ordinal());
-            data.set(2, 0);
+            data.set(2, NameFilterData.getMatchScope(stack).ordinal());
         } else if (isSlotMode) {
             data.set(0, SlotFilterData.isBlacklist(stack) ? 1 : 0);
             data.set(1, 0);
@@ -306,6 +346,12 @@ public class FilterMenu extends AbstractContainerMenu {
         NameFilterData.setNameFilter(getOpenedStack(), name);
         broadcastChanges();
         return true;
+    }
+
+    public NameMatchScope getNameMatchScope() {
+        if (!isNameMode)
+            return NameMatchScope.NAME;
+        return NameMatchScope.fromOrdinal(data.get(2));
     }
 
     public String getSlotExpression() {
@@ -493,6 +539,8 @@ public class FilterMenu extends AbstractContainerMenu {
     }
 
     public ItemStack getOpenedStack() {
+        if (inventorySlotIndex >= 0)
+            return player.getInventory().getItem(inventorySlotIndex);
         if (hand == InteractionHand.OFF_HAND)
             return player.getOffhandItem();
         return (lockedSlot >= 0) ? player.getInventory().getItem(lockedSlot) : player.getMainHandItem();
@@ -507,6 +555,8 @@ public class FilterMenu extends AbstractContainerMenu {
             return toggleBlacklist();
         if (id == ID_CYCLE_TARGET)
             return cycleTargetType();
+        if (id == ID_CYCLE_NAME_SCOPE && isNameMode)
+            return cycleNameMatchScope();
         if (isDurabilityMode)
             return handleDurabilityAction(id);
         if (isAmountMode)
@@ -561,6 +611,15 @@ public class FilterMenu extends AbstractContainerMenu {
         else if (!isSlotMode)
             FilterItemData.setTargetType(stack, next);
 
+        broadcastChanges();
+        return true;
+    }
+
+    private boolean cycleNameMatchScope() {
+        ItemStack stack = getOpenedStack();
+        NameMatchScope next = NameFilterData.getMatchScope(stack).next();
+        NameFilterData.setMatchScope(stack, next);
+        data.set(2, next.ordinal());
         broadcastChanges();
         return true;
     }

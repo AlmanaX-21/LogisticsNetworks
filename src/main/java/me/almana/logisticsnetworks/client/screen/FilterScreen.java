@@ -5,6 +5,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import me.almana.logisticsnetworks.filter.DurabilityFilterData;
 import me.almana.logisticsnetworks.filter.FilterItemData;
 import me.almana.logisticsnetworks.filter.FilterTargetType;
+import me.almana.logisticsnetworks.filter.NameFilterData;
+import me.almana.logisticsnetworks.filter.NameMatchScope;
 import me.almana.logisticsnetworks.filter.NbtFilterData;
 import me.almana.logisticsnetworks.filter.SlotFilterData;
 import net.minecraft.core.registries.Registries;
@@ -1404,11 +1406,12 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     private void renderNameMode(GuiGraphics g, int mx, int my) {
         int contentX = leftPos + 8;
         int contentW = imageWidth - 16;
-        int inputY = topPos + 34;
-        int activeY = topPos + 52;
-        int hintY = topPos + 62;
+        int btnRowY = topPos + 20;
+        int inputY = topPos + 38;
+        int activeY = topPos + 56;
+        int hintY = topPos + 66;
 
-        renderModeControls(g, mx, my, true);
+        renderNameButtons(g, mx, my, btnRowY);
 
         manualInputBox.setX(contentX);
         manualInputBox.setY(inputY);
@@ -1421,21 +1424,126 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
         String activeLine = Component.translatable("gui.logisticsnetworks.filter.name.active", display).getString();
         g.drawString(font, font.plainSubstrByWidth(activeLine, contentW), contentX, activeY, COL_ACCENT, false);
 
-        String hintLine = Component.translatable("gui.logisticsnetworks.filter.name.input_hint").getString();
-        g.drawString(font, font.plainSubstrByWidth(hintLine, contentW), contentX, hintY, COL_GRAY, false);
+        // Show invalid regex warning
+        if (!value.isEmpty() && !NameFilterData.isValidRegex(value)) {
+            String warning = Component.translatable("gui.logisticsnetworks.filter.name.invalid_regex").getString();
+            g.drawString(font, warning, contentX, hintY, 0xFFFF5555, false);
+        } else {
+            String hintLine = Component.translatable("gui.logisticsnetworks.filter.name.input_hint").getString();
+            g.drawString(font, font.plainSubstrByWidth(hintLine, contentW), contentX, hintY, COL_GRAY, false);
+        }
+    }
+
+    private void renderNameButtons(GuiGraphics g, int mx, int my, int btnY) {
+        int btnH = 12;
+        int leftEdge = leftPos + 8;
+
+        // Scope button
+        NameMatchScope scope = menu.getNameMatchScope();
+        String scopeLabel;
+        if (scope == NameMatchScope.TOOLTIP) {
+            scopeLabel = tr("gui.logisticsnetworks.filter.name.scope.tooltip");
+        } else if (scope == NameMatchScope.BOTH) {
+            scopeLabel = tr("gui.logisticsnetworks.filter.name.scope.both");
+        } else {
+            scopeLabel = tr("gui.logisticsnetworks.filter.name.scope.name");
+        }
+        int scopeBtnW = Math.max(40, font.width(scopeLabel) + 8);
+        drawButton(g, leftEdge, btnY, scopeBtnW, btnH, scopeLabel, mx, my, true);
+
+        // Target type button
+        String typeLabel;
+        if (menu.getTargetType() == FilterTargetType.CHEMICALS) {
+            typeLabel = tr("gui.logisticsnetworks.filter.target.chemicals");
+        } else if (menu.getTargetType() == FilterTargetType.FLUIDS) {
+            typeLabel = tr("gui.logisticsnetworks.filter.target.fluids");
+        } else {
+            typeLabel = tr("gui.logisticsnetworks.filter.target.items");
+        }
+        int typeBtnW = Math.max(40, font.width(typeLabel) + 8);
+        int typeBtnX = leftEdge + scopeBtnW + 4;
+        drawButton(g, typeBtnX, btnY, typeBtnW, btnH, typeLabel, mx, my, true);
+
+        // Whitelist/Blacklist button
+        String modeLabel = menu.isBlacklistMode()
+                ? tr("gui.logisticsnetworks.filter.mode.blacklist")
+                : tr("gui.logisticsnetworks.filter.mode.whitelist");
+        int modeBtnW = Math.max(48, font.width(modeLabel) + 8);
+        int modeBtnX = typeBtnX + typeBtnW + 4;
+        drawButton(g, modeBtnX, btnY, modeBtnW, btnH, modeLabel, mx, my, true);
     }
 
     private boolean handleNameClick(double mx, double my, int btn) {
         int contentX = leftPos + 8;
-        int inputY = topPos + 34;
+        int inputY = topPos + 38;
         int contentW = imageWidth - 16;
 
-        if (handleModeControlClick(mx, my, true))
+        if (handleNameButtonsClick(mx, my))
             return true;
 
         if (btn == 1 && isHovering(contentX, inputY, contentW, 14, (int) mx, (int) my)) {
             manualInputBox.setValue("");
             sendNameUpdate("");
+            return true;
+        }
+
+        return false;
+    }
+
+    private boolean handleNameButtonsClick(double mx, double my) {
+        int btnH = 12;
+        int btnY = topPos + 20;
+        int leftEdge = leftPos + 8;
+
+        // Scope button
+        NameMatchScope scope = menu.getNameMatchScope();
+        String scopeLabel;
+        if (scope == NameMatchScope.TOOLTIP) {
+            scopeLabel = tr("gui.logisticsnetworks.filter.name.scope.tooltip");
+        } else if (scope == NameMatchScope.BOTH) {
+            scopeLabel = tr("gui.logisticsnetworks.filter.name.scope.both");
+        } else {
+            scopeLabel = tr("gui.logisticsnetworks.filter.name.scope.name");
+        }
+        int scopeBtnW = Math.max(40, font.width(scopeLabel) + 8);
+
+        if (isHovering(leftEdge, btnY, scopeBtnW, btnH, (int) mx, (int) my)) {
+            if (minecraft != null && minecraft.gameMode != null) {
+                minecraft.gameMode.handleInventoryButtonClick(menu.containerId, 9);
+            }
+            return true;
+        }
+
+        // Target type button
+        String typeLabel;
+        if (menu.getTargetType() == FilterTargetType.CHEMICALS) {
+            typeLabel = tr("gui.logisticsnetworks.filter.target.chemicals");
+        } else if (menu.getTargetType() == FilterTargetType.FLUIDS) {
+            typeLabel = tr("gui.logisticsnetworks.filter.target.fluids");
+        } else {
+            typeLabel = tr("gui.logisticsnetworks.filter.target.items");
+        }
+        int typeBtnW = Math.max(40, font.width(typeLabel) + 8);
+        int typeBtnX = leftEdge + scopeBtnW + 4;
+
+        if (isHovering(typeBtnX, btnY, typeBtnW, btnH, (int) mx, (int) my)) {
+            if (minecraft != null && minecraft.gameMode != null) {
+                minecraft.gameMode.handleInventoryButtonClick(menu.containerId, 8);
+            }
+            return true;
+        }
+
+        // Whitelist/Blacklist button
+        String modeLabel = menu.isBlacklistMode()
+                ? tr("gui.logisticsnetworks.filter.mode.blacklist")
+                : tr("gui.logisticsnetworks.filter.mode.whitelist");
+        int modeBtnW = Math.max(48, font.width(modeLabel) + 8);
+        int modeBtnX = typeBtnX + typeBtnW + 4;
+
+        if (isHovering(modeBtnX, btnY, modeBtnW, btnH, (int) mx, (int) my)) {
+            if (minecraft != null && minecraft.gameMode != null) {
+                minecraft.gameMode.handleInventoryButtonClick(menu.containerId, 0);
+            }
             return true;
         }
 
