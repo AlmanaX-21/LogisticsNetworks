@@ -9,17 +9,13 @@ navigation:
 
 # Mod Filter
 
-Mod Filter checks namespace, like `minecraft` or `mekanism`.
+The Mod Filter matches resources by their mod namespace, such as `minecraft` or `mekanism`.
 
-You can type a namespace or select from the extractor picker.
+## How to Use
 
-Target type can be:
+1. Open the filter GUI.
+2. Type a mod namespace directly, or place an item in the extractor slot and pick from the list.
 
-1. Items
-2. Fluids
-3. Chemicals
-
-In the current UI flow, you work with one selected mod value.
+The filter matches any Item, Fluid, or Chemical that belongs to the selected mod.
 
 <RecipeFor id="logisticsnetworks:mod_filter" />
-

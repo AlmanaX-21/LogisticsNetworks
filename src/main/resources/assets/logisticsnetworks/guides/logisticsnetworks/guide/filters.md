@@ -7,48 +7,54 @@ navigation:
 
 # Filters
 
-Filters are read from both ends of a transfer.
+Filters control what resources a channel accepts or rejects. They are checked on both ends of a transfer:
 
-For supported channel types, transfer checks:
+1. Export channel filter slots on the source node.
+2. Import channel filter slots on the target node.
 
-1. Export channel filter slots on the source node
-2. Import channel filter slots on the target node
+Filters work on Item, Fluid, and Chemical channels. Energy and Source channels do not use filters.
 
-So filters are bidirectional in practice.
+## Filter Mode
 
-The channel filter mode changes whitelist behavior:
+The channel filter mode controls whitelist behavior:
 
-1. Any means at least one whitelist filter can match.
-2. All means all whitelist filters must match.
-3. Blacklist matches always block.
+1. **Any**: at least one whitelist filter must match.
+2. **All**: every whitelist filter must match.
 
-## Base Filter Features and Keybinds
+Blacklist filter matches always block the transfer regardless of mode.
 
-The base filters (Small, Medium, Big) include built-in capabilities for Amount, Tag, and NBT filtering without needing specialized filter items.
+## Base Filters
 
-- **Amount Filtering:** Hover over a slot and scroll to set an amount.
-  - Normal scroll: +/- 1 (or 50mB for fluids)
-  - Shift + scroll: +/- 8 (or 500mB for fluids)
-  - Ctrl + scroll: +/- 64 (or 1000mB for fluids)
-  - Alt + scroll: Set to maximum / minimum
-- **Tag Filtering:** `Ctrl + Left Click` on a slot to enter Tag mode.
-- **NBT Filtering:** `Ctrl + Right Click` on a slot to enter NBT mode.
+The Small, Medium, and Big filters are the primary filter items. They include built-in support for Amount, Tag, and NBT filtering per slot.
 
-### Filtering Behaviors
+### Keybinds
 
-**Amount Filtering**
+1. **Amount**: hover over a slot and scroll to set an amount threshold.
+   - Normal scroll: +/- 1 (or 50mB for fluids)
+   - Shift scroll: +/- 8 (or 500mB for fluids)
+   - Ctrl scroll: +/- 64 (or 1000mB for fluids)
+   - Alt scroll: jump to maximum or minimum
+2. **Tag mode**: Ctrl left click on a slot.
+3. **NBT mode**: Ctrl right click on a slot.
+
+### Amount Filtering
+
 Sets a stock threshold for transfers.
-- On the **Export** side, it keeps stock in the source (allows moving anything *above* threshold).
-- On the **Import** side, it caps stock in the destination (stops filling *at* threshold).
-- If multiple amount filters exist, export uses the highest threshold, import uses the lowest.
 
-**Tag Filtering**
-Stores one tag value for a slot. You can select it by typing or using an item in the extractor slot. Supports Items, Fluids, and Chemicals (if Mekanism is present).
+1. On the Export side, keeps stock in the source. Only moves amounts above the threshold.
+2. On the Import side, caps stock in the destination. Stops filling at the threshold.
+3. If multiple amount filters exist on a channel, export uses the highest threshold, import uses the lowest.
 
-**NBT Filtering**
-Stores one selected NBT path and exact value. Put an item or fluid container in the extractor slot to pick a path. The match must be exact equality on the selected value to pass the filter.
+### Tag Filtering
 
-Open each filter page below for exact behavior.
+Stores one tag value per slot. Set it by typing a tag name or using an item in the extractor slot to pick from its tags. Supports Items, Fluids, and Chemicals.
+
+### NBT Filtering
+
+Stores one selected NBT path and exact value per slot. Put an item or fluid container in the extractor slot to browse its data components. Pick a path and the value is stored. The match requires exact equality on the selected value.
+
+## Specialized Filters
+
+These filters provide unique matching behavior that base filters do not cover.
 
 <SubPages icons={true} />
-

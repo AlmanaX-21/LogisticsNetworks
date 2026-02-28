@@ -9,24 +9,19 @@ navigation:
 
 # Durability Filter
 
-Durability Filter checks remaining durability on damageable items.
+The Durability Filter matches damageable items based on their remaining durability.
 
-You can set:
+Remaining durability is calculated as: max damage minus current damage.
 
-1. Operator: less or equal, equal, greater or equal
-2. Value: from 0 to 3000
+## Settings
 
-Remaining durability is:
+1. **Operator**: less than or equal, equal, greater than or equal.
+2. **Value**: 0 to 3000.
 
-`max damage minus current damage`
+## Behavior
 
-Current behavior in transfer logic:
-
-1. It is checked for item matching.
-2. It requires a positive match.
-3. Blacklist toggle on this filter does not invert the result.
-
-It does not affect fluid, chemical, energy, or source transfers.
+1. Only applies to item transfers. Does not affect fluids, chemicals, energy, or source.
+2. Requires a positive match for the transfer to proceed.
+3. The blacklist toggle on this filter does not invert the durability check.
 
 <RecipeFor id="logisticsnetworks:durability_filter" />
-

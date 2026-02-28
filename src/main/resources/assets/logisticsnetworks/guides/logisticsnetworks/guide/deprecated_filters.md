@@ -7,7 +7,7 @@ navigation:
 
 # Deprecated Filters
 
-The following filters have been superseded by the `Small`, `Medium`, and `Big` filters. Their unique matching properties have been integrated as new functional modes for slots in those base filters.
+The following filters have been superseded by the Small, Medium, and Big filters. Their functionality (Amount, Tag, NBT) is now built into every slot of the base filters.
 
 These items will be removed in a future update.
 

@@ -10,25 +10,16 @@ navigation:
 # NBT Filter (Deprecated)
 
 > [!WARNING]
-> The isolated NBT Filter is deprecated. NBT filtering is now a built-in feature of base filters (Small, Medium, Big).
+> This filter is deprecated. NBT filtering is now built into the base filters (Small, Medium, Big). Use Ctrl right click on any slot to enter NBT mode.
 
-NBT Filter stores one selected path and one exact value.
+The NBT Filter stores one selected data component path and its exact value.
 
-Setup flow:
+## How to Use
 
-1. Open the NBT filtering mode for a slot (`Ctrl + Right Click`).
-2. Put an item or fluid container in the extractor slot.
-3. Pick a path from the detected list.
-4. The value at that path is stored on the filter for that slot.
+1. Place an item or fluid container in the extractor slot.
+2. Browse the detected data component paths.
+3. Pick a path. The value at that path is stored.
 
-Match is exact equality on the selected value.
+The match requires exact equality on the selected value.
 
-Target types in UI:
-
-1. Items
-2. Fluids
-3. Chemicals
-
-Current code supports matching for Items and Fluids.
-There is no chemical NBT matching implementation right now.
-
+Works with Items and Fluids. Chemical NBT matching is not currently implemented.

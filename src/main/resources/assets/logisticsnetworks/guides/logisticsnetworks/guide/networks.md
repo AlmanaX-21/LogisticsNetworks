@@ -8,19 +8,34 @@ navigation:
 
 # Networks
 
-A network is just a group of nodes. Transfers only happen inside one network.
+A network is a logical group of nodes. Transfers only happen between nodes in the same network.
 
-You pick the network in the node screen.
+Networks are not spatial. Nodes in different dimensions can share the same network if they have a Dimensional Upgrade.
 
-1. Place a node.
-2. Open it with the wrench in Wrench mode.
-3. Create a new network name, or pick an existing one.
+## Creating a Network
 
-What happens after that:
+1. Place a node on a block.
+2. Open the node with the wrench in Wrench mode.
+3. Type a name in the network name input.
+4. Click Create Network.
 
-1. The node stores the network id and name.
-2. The registry keeps the node list for that network.
-3. Empty networks are deleted automatically.
+The node joins the new network and starts participating in transfers.
 
-A node with no network does not transfer anything.
+## Joining an Existing Network
 
+1. Open the node with the wrench.
+2. Scroll the existing network list.
+3. Click the network you want to join.
+
+## Renaming a Network
+
+You can rename a network from the node GUI. Only the network owner or server operators can rename.
+
+Network names have a maximum length of 32 characters.
+
+## How Networks Work
+
+1. Each node stores a network id.
+2. The network registry tracks which nodes belong to each network.
+3. Empty networks with no nodes are deleted automatically.
+4. A node with no network does not transfer anything.

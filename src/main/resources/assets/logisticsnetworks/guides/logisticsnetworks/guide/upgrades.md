@@ -8,65 +8,54 @@ navigation:
 
 # Upgrades
 
-Nodes have 4 upgrade slots.
+Nodes have 4 upgrade slots shared across all channels. The highest speed tier installed on a node determines the caps for that node.
 
-Speed caps come from tier. The highest speed tier installed on that node is used.
+## Tier Limits
 
-Default tier limits from `upgrades.json`:
+Default values from `config/logistics-network/upgrades.json`:
 
-1. None: min delay 20, item 8, fluid 500, energy 2000, chemical 500, source 500
-2. Iron: min delay 10, item 16, fluid 1000, energy 10000, chemical 1000, source 1000
-3. Gold: min delay 5, item 32, fluid 5000, energy 50000, chemical 5000, source 5000
-4. Diamond: min delay 1, item 64, fluid 20000, energy 250000, chemical 20000, source 20000
-5. Netherite: min delay 1, item 10000, fluid 1000000, energy unlimited, chemical 1000000, source 1000000
+1. **None**: min delay 20, item 8, fluid 500, energy 2000, chemical 500, source 500
+2. **Iron**: min delay 10, item 16, fluid 1000, energy 10000, chemical 1000, source 1000
+3. **Gold**: min delay 5, item 32, fluid 5000, energy 50000, chemical 5000, source 5000
+4. **Diamond**: min delay 1, item 64, fluid 20000, energy 250000, chemical 20000, source 20000
+5. **Netherite**: min delay 1, item 10000, fluid 1000000, energy unlimited, chemical 1000000, source 1000000
 
-Those values can be changed by config at `config/logistics-network/upgrades.json`.
+These values can be changed in the config file.
 
-## Iron Upgrade
+## Speed Upgrades
+
+### Iron Upgrade
 
 <RecipeFor id="logisticsnetworks:iron_upgrade" />
 
-Image placeholder: Add screenshot of Iron Upgrade recipe here.
-
-## Gold Upgrade
+### Gold Upgrade
 
 <RecipeFor id="logisticsnetworks:gold_upgrade" />
 
-Image placeholder: Add screenshot of Gold Upgrade recipe here.
-
-## Diamond Upgrade
+### Diamond Upgrade
 
 <RecipeFor id="logisticsnetworks:diamond_upgrade" />
 
-Image placeholder: Add screenshot of Diamond Upgrade recipe here.
-
-## Netherite Upgrade
+### Netherite Upgrade
 
 <RecipeFor id="logisticsnetworks:netherite_upgrade" />
 
-Image placeholder: Add screenshot of Netherite Upgrade recipe here.
+## Special Upgrades
 
-## Dimensional Upgrade
+### Dimensional Upgrade
 
-Allows cross dimension transfers, but both nodes need this upgrade.
+Allows cross-dimension transfers. Both the source and target nodes must have this upgrade installed.
 
 <RecipeFor id="logisticsnetworks:dimensional_upgrade" />
 
-Image placeholder: Add screenshot of Dimensional Upgrade recipe here.
+### Mekanism Chemical Upgrade
 
-## Mekanism Chemical Upgrade
-
-Unlocks Chemical channel type on that node when Mekanism is loaded.
+Unlocks the Chemical channel type on the node. Only works when Mekanism is installed.
 
 <RecipeFor id="logisticsnetworks:mekanism_chemical_upgrade" />
 
-Image placeholder: Add screenshot of Mekanism Chemical Upgrade recipe here.
+### Ars Source Upgrade
 
-## Ars Source Upgrade
-
-Unlocks Source channel type on that node when Ars Nouveau is loaded.
+Unlocks the Source channel type on the node. Only works when Ars Nouveau is installed.
 
 <RecipeFor id="logisticsnetworks:ars_source_upgrade" />
-
-Image placeholder: Add screenshot of Ars Source Upgrade recipe here.
-

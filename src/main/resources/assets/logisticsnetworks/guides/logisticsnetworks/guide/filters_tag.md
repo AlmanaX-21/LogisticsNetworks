@@ -10,20 +10,13 @@ navigation:
 # Tag Filter (Deprecated)
 
 > [!WARNING]
-> The isolated Tag Filter is deprecated. Tag filtering is now a built-in feature of base filters (Small, Medium, Big).
+> This filter is deprecated. Tag filtering is now built into the base filters (Small, Medium, Big). Use Ctrl left click on any slot to enter Tag mode.
 
-Tag Filter stores one tag value.
+The Tag Filter stores one tag value and matches any resource that has that tag.
 
-You can set it by opening Tag Mode for a slot (`Ctrl + Left Click`) and then:
+## How to Use
 
-1. Typing a tag
-2. Using the extractor slot and picker list
+1. Type a tag name directly.
+2. Or place an item in the extractor slot and pick from its tags.
 
-Target type can be:
-
-1. Items
-2. Fluids
-3. Chemicals
-
-Chemical tag checks are used only when Mekanism is present.
-
+Works with Items, Fluids, and Chemicals. Chemical tag checks require Mekanism.

@@ -10,30 +10,18 @@ navigation:
 # Amount Filter (Deprecated)
 
 > [!WARNING]
-> The isolated Amount Filter is deprecated. Amount filtering is now a built-in feature of base filters (Small, Medium, Big).
+> This filter is deprecated. Amount filtering is now built into the base filters (Small, Medium, Big). Use scroll on any slot to set amounts.
 
-Amount Filter sets a threshold value.
+The Amount Filter sets a stock threshold for transfers.
 
-How threshold is used:
+## Behavior
 
-1. On Export side it keeps stock in source.
-2. On Import side it caps stock in destination.
-
-For items:
-
-1. Export allows moving only amount above threshold.
-2. Import allows moving only amount below threshold.
-
-For fluids:
-
-1. Export keeps fluid reserve above threshold.
-2. Import stops fill at threshold.
+1. On the Export side, keeps stock in the source. Only moves amounts above the threshold.
+2. On the Import side, caps stock in the destination. Stops filling at the threshold.
 
 When multiple Amount filters exist on a channel:
 
 1. Export side uses the highest threshold.
 2. Import side uses the lowest threshold.
 
-Target type can be Items, Fluids, or Chemicals.
-Current transfer code applies threshold logic to Items and Fluids.
-
+Works with Items, Fluids, and Chemicals.

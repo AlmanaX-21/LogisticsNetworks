@@ -9,19 +9,12 @@ navigation:
 
 # Name Filter
 
-Name Filter does lowercase contains matching on display names.
+The Name Filter matches resources by their display name using case-insensitive substring matching.
 
-Example:
+For example, setting the value to `stone` matches any resource whose name contains "stone" (Stone, Cobblestone, Stonecutter, etc).
 
-If you set `stone`, it matches any target name that contains `stone`.
+## Supported Types
 
-Target type can be:
-
-1. Items
-2. Fluids
-3. Chemicals
-
-Chemical name matching uses Mekanism text when available, then falls back to chemical id text.
+Works with Items, Fluids, and Chemicals. Chemical name matching uses the Mekanism display text when available, then falls back to the chemical id.
 
 <RecipeFor id="logisticsnetworks:name_filter" />
-
