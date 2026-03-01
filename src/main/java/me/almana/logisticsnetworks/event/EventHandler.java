@@ -3,8 +3,10 @@ package me.almana.logisticsnetworks.event;
 import me.almana.logisticsnetworks.Config;
 import me.almana.logisticsnetworks.Logisticsnetworks;
 import me.almana.logisticsnetworks.data.ChannelData;
+import me.almana.logisticsnetworks.data.ChannelMode;
 import me.almana.logisticsnetworks.data.LogisticsNetwork;
 import me.almana.logisticsnetworks.data.NetworkRegistry;
+import me.almana.logisticsnetworks.data.RedstoneMode;
 import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
 import me.almana.logisticsnetworks.filter.FilterItemData;
 import me.almana.logisticsnetworks.integration.mekanism.MekanismCompat;
@@ -107,12 +109,31 @@ public class EventHandler {
 
         AABB searchBox = new AABB(event.getPos()).inflate(1.0);
         List<LogisticsNodeEntity> nodes = level.getEntitiesOfClass(LogisticsNodeEntity.class, searchBox);
+        NetworkRegistry registry = NetworkRegistry.get(level);
 
         for (LogisticsNodeEntity node : nodes) {
-            if (node.isActive() && node.getNetworkId() != null && node.getAttachedPos().equals(event.getPos())) {
-                NetworkRegistry.get(level).markNetworkDirty(node.getNetworkId());
+            if (!node.isActive() || node.getNetworkId() == null)
+                continue;
+
+            if (node.getAttachedPos().equals(event.getPos())) {
+                registry.markNetworkDirty(node.getNetworkId());
+            } else if (hasRedstoneSensitiveChannel(node)) {
+                registry.markNetworkDirty(node.getNetworkId());
             }
         }
+    }
+
+    private static boolean hasRedstoneSensitiveChannel(LogisticsNodeEntity node) {
+        ChannelData[] channels = node.getChannels();
+        for (ChannelData ch : channels) {
+            if (ch.isEnabled() && ch.getMode() == ChannelMode.EXPORT) {
+                RedstoneMode mode = ch.getRedstoneMode();
+                if (mode == RedstoneMode.HIGH || mode == RedstoneMode.LOW) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @SubscribeEvent
