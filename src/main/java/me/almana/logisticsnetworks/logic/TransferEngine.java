@@ -60,6 +60,9 @@ public class TransferEngine {
     private record RecipeEntry(ItemStack item, String tag, int amount) {
     }
 
+    private record RecipeCursorResult(int moved, int entryIndex, int entryRemaining, boolean completed) {
+    }
+
     private static List<RecipeEntry> buildRecipe(ItemStack[] exportFilters, HolderLookup.Provider provider) {
         List<RecipeEntry> recipe = new ArrayList<>();
         if (exportFilters == null)
@@ -273,7 +276,7 @@ public class TransferEngine {
                 case SOURCE ->
                     transferSource(sourceNode, sourceLevel, channel, targets, effectiveBatchSize, dimensionalCache);
                 default ->
-                    transferItems(sourceNode, sourceLevel, channel, targets, effectiveBatchSize, dimensionalCache);
+                    transferItems(sourceNode, sourceLevel, channel, i, targets, effectiveBatchSize, dimensionalCache);
             };
 
             if (result < 0)
@@ -319,8 +322,7 @@ public class TransferEngine {
             if (curBackoff > configuredDelay) {
                 node.setBackoffTicks(index, Math.max(configuredDelay, curBackoff / BACKOFF_DECAY_DIVISOR));
             }
-            if (channel.getDistributionMode() == DistributionMode.ROUND_ROBIN
-                    || channel.getDistributionMode() == DistributionMode.RECIPE_ROBIN) {
+            if (channel.getDistributionMode() == DistributionMode.ROUND_ROBIN) {
                 node.advanceRoundRobin(index, targetCount);
             }
         } else {
@@ -377,7 +379,7 @@ public class TransferEngine {
     }
 
     private static int transferItems(LogisticsNodeEntity sourceNode, ServerLevel sourceLevel,
-            ChannelData exportChannel, List<ImportTarget> targets, int batchLimit,
+            ChannelData exportChannel, int channelIndex, List<ImportTarget> targets, int batchLimit,
             Map<UUID, Boolean> dimensionalCache) {
 
         BlockPos sourcePos = sourceNode.getAttachedPos();
@@ -434,10 +436,9 @@ public class TransferEngine {
 
         int moved;
         if (exportChannel.getDistributionMode() == DistributionMode.RECIPE_ROBIN) {
-            moved = executeMoveRecipe(sourceHandler, reachableTargets, batchLimit,
-                    exportFilters, exportChannel.getFilterMode(),
-                    sourceAllowedSlots,
-                    sourceLevel.registryAccess());
+            moved = executeMoveRecipeWithCursor(sourceNode, channelIndex, sourceHandler,
+                    reachableTargets, batchLimit, exportFilters, exportChannel.getFilterMode(),
+                    sourceAllowedSlots, sourceLevel.registryAccess());
         } else {
             moved = executeMove(sourceHandler, reachableTargets, batchLimit,
                     exportFilters, exportChannel.getFilterMode(),
@@ -833,28 +834,18 @@ public class TransferEngine {
         return limit - remaining;
     }
 
-    private static int executeMoveRecipe(IItemHandler source, List<ItemTransferTarget> targets, int limit,
-            ItemStack[] exportFilters, FilterMode exportFilterMode,
-            boolean[] sourceAllowedSlots,
-            HolderLookup.Provider provider) {
+    private static RecipeCursorResult executeMoveRecipeToTargetWithCursor(IItemHandler source, ItemTransferTarget target,
+            int limit, List<RecipeEntry> recipe, boolean[] sourceAllowedSlots,
+            HolderLookup.Provider provider, int startEntryIndex, int startEntryRemaining) {
 
-        List<RecipeEntry> recipe = buildRecipe(exportFilters, provider);
-
-        // No per-entry amounts configured: fall back to normal round-robin behavior
-        if (recipe.isEmpty()) {
-            return executeMove(source, targets, limit, exportFilters, exportFilterMode,
-                    sourceAllowedSlots, provider);
-        }
-
-        if (targets.isEmpty())
-            return 0;
-
-        // RECIPE_ROBIN targets only the first destination (rotation already applied by orderTargets)
-        ItemTransferTarget target = targets.get(0);
         int totalMoved = 0;
+        int currentEntryIdx = startEntryIndex;
+        int currentRemaining = startEntryRemaining;
 
-        for (RecipeEntry entry : recipe) {
-            int wantToMove = Math.min(entry.amount, limit - totalMoved);
+        while (currentEntryIdx < recipe.size()) {
+            RecipeEntry entry = recipe.get(currentEntryIdx);
+
+            int wantToMove = Math.min(currentRemaining, limit - totalMoved);
             if (wantToMove <= 0)
                 break;
 
@@ -872,12 +863,10 @@ public class TransferEngine {
                     continue;
                 }
 
-                // Must match this specific recipe entry
                 if (!matchesRecipeEntry(entry, extracted)) {
                     continue;
                 }
 
-                // Check import filter acceptance on the target side
                 if (provider != null && !FilterLogic.matchesItem(target.importFilters(),
                         target.importFilterMode(), extracted, provider, null)) {
                     continue;
@@ -885,7 +874,6 @@ public class TransferEngine {
 
                 int toExtract = Math.min(extracted.getCount(), needed);
 
-                // Simulate insertion to determine how many the target can accept
                 ItemStack simulatedInsert = extracted.copyWithCount(toExtract);
                 ItemStack simRemainder = insertItemWithAllowedSlots(
                         target.handler(), simulatedInsert, true, target.allowedSlots());
@@ -901,7 +889,6 @@ public class TransferEngine {
                         target.handler(), toMove, false, target.allowedSlots());
                 int moved = toMove.getCount() - uninserted.getCount();
 
-                // Put-back safety for uninserted items
                 if (!uninserted.isEmpty()) {
                     ItemStack stillLeft = source.insertItem(slot, uninserted, false);
                     if (!stillLeft.isEmpty()) {
@@ -909,8 +896,9 @@ public class TransferEngine {
                             stillLeft = source.insertItem(fb, stillLeft, false);
                         }
                         if (!stillLeft.isEmpty()) {
-                            LOGGER.error("ITEM VOIDING PREVENTED in recipe robin: Could not return {} to source handler {}. " +
-                                    "Forcing back into target as last resort.",
+                            LOGGER.error(
+                                    "ITEM VOIDING PREVENTED in recipe robin: Could not return {} to source handler {}. "
+                                            + "Forcing back into target as last resort.",
                                     stillLeft, source.getClass().getSimpleName());
                             insertItemWithAllowedSlots(target.handler(), stillLeft, false, null);
                         }
@@ -921,6 +909,84 @@ public class TransferEngine {
             }
 
             totalMoved += movedForEntry;
+            currentRemaining -= movedForEntry;
+
+            if (currentRemaining <= 0) {
+                currentEntryIdx++;
+                if (currentEntryIdx < recipe.size()) {
+                    currentRemaining = recipe.get(currentEntryIdx).amount();
+                } else {
+                    return new RecipeCursorResult(totalMoved, 0, 0, true);
+                }
+            } else {
+                break;
+            }
+        }
+
+        if (currentEntryIdx >= recipe.size()) {
+            return new RecipeCursorResult(totalMoved, 0, 0, true);
+        }
+
+        return new RecipeCursorResult(totalMoved, currentEntryIdx, currentRemaining, false);
+    }
+
+    private static int executeMoveRecipeWithCursor(
+            LogisticsNodeEntity sourceNode, int channelIndex,
+            IItemHandler source, List<ItemTransferTarget> targets, int limit,
+            ItemStack[] exportFilters, FilterMode exportFilterMode,
+            boolean[] sourceAllowedSlots, HolderLookup.Provider provider) {
+
+        List<RecipeEntry> recipe = buildRecipe(exportFilters, provider);
+
+        if (recipe.isEmpty()) {
+            return executeMove(source, targets, limit, exportFilters, exportFilterMode,
+                    sourceAllowedSlots, provider);
+        }
+
+        if (targets.isEmpty())
+            return 0;
+
+        int cursorEntry = sourceNode.getRecipeCursorEntry(channelIndex);
+        int cursorRemaining = sourceNode.getRecipeCursorRemaining(channelIndex);
+
+        if (cursorEntry >= recipe.size() || cursorEntry < 0) {
+            cursorEntry = 0;
+            cursorRemaining = 0;
+        }
+        if (cursorRemaining <= 0) {
+            cursorRemaining = recipe.get(cursorEntry).amount();
+        }
+
+        int totalMoved = 0;
+        int remaining = limit;
+        int targetsCompleted = 0;
+
+        for (int t = 0; t < targets.size() && remaining > 0; t++) {
+            ItemTransferTarget target = targets.get(t);
+
+            RecipeCursorResult result = executeMoveRecipeToTargetWithCursor(
+                    source, target, remaining, recipe,
+                    sourceAllowedSlots, provider,
+                    cursorEntry, cursorRemaining);
+
+            totalMoved += result.moved();
+            remaining -= result.moved();
+
+            if (result.completed()) {
+                targetsCompleted++;
+                cursorEntry = 0;
+                cursorRemaining = recipe.get(0).amount();
+            } else {
+                cursorEntry = result.entryIndex();
+                cursorRemaining = result.entryRemaining();
+                break;
+            }
+        }
+
+        sourceNode.setRecipeCursor(channelIndex, cursorEntry, cursorRemaining);
+
+        if (targetsCompleted > 0) {
+            sourceNode.advanceRoundRobin(channelIndex, targets.size(), targetsCompleted);
         }
 
         return totalMoved;
