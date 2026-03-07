@@ -32,6 +32,7 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.util.*;
@@ -661,6 +662,7 @@ public class TransferEngine {
             HolderLookup.Provider provider) {
 
         int remaining = limit;
+        FilterItemData.ReadCache filterReadCache = FilterItemData.createReadCache();
         boolean hasExportNbtFilter = FilterLogic.hasConfiguredItemNbtFilter(exportFilters);
         boolean hasAnyImportNbtFilter = false;
         for (ItemTransferTarget target : targets) {
@@ -725,13 +727,13 @@ public class TransferEngine {
 
                     if (provider != null) {
                         if (!FilterLogic.matchesItem(exportFilters, exportFilterMode, extracted, provider,
-                                candidateComponents)) {
+                                candidateComponents, filterReadCache)) {
                             continue;
                         }
                     }
 
                     if (provider != null && !FilterLogic.matchesItem(target.importFilters(), target.importFilterMode(),
-                            extracted, provider, candidateComponents)) {
+                            extracted, provider, candidateComponents, filterReadCache)) {
                         continue;
                     }
 
@@ -747,7 +749,8 @@ public class TransferEngine {
                         if (target.constraints().hasPerEntryAmounts && provider != null) {
                             int perEntry = getPerEntryItemAmountLimit(extracted, exportFilters,
                                     target.importFilters(), sourceItemCounts,
-                                    targetItemCounts.get(targetIndex), provider);
+                                    targetItemCounts.get(targetIndex), provider, candidateComponents,
+                                    filterReadCache);
                             if (perEntry >= 0) {
                                 allowedByAmount = Math.min(allowedByAmount, perEntry);
                             }
@@ -836,7 +839,8 @@ public class TransferEngine {
 
     private static RecipeCursorResult executeMoveRecipeToTargetWithCursor(IItemHandler source, ItemTransferTarget target,
             int limit, List<RecipeEntry> recipe, boolean[] sourceAllowedSlots,
-            HolderLookup.Provider provider, int startEntryIndex, int startEntryRemaining) {
+            HolderLookup.Provider provider, @Nullable FilterItemData.ReadCache filterReadCache,
+            int startEntryIndex, int startEntryRemaining) {
 
         int totalMoved = 0;
         int currentEntryIdx = startEntryIndex;
@@ -868,7 +872,7 @@ public class TransferEngine {
                 }
 
                 if (provider != null && !FilterLogic.matchesItem(target.importFilters(),
-                        target.importFilterMode(), extracted, provider, null)) {
+                        target.importFilterMode(), extracted, provider, null, filterReadCache)) {
                     continue;
                 }
 
@@ -960,13 +964,14 @@ public class TransferEngine {
         int totalMoved = 0;
         int remaining = limit;
         int targetsCompleted = 0;
+        FilterItemData.ReadCache filterReadCache = FilterItemData.createReadCache();
 
         for (int t = 0; t < targets.size() && remaining > 0; t++) {
             ItemTransferTarget target = targets.get(t);
 
             RecipeCursorResult result = executeMoveRecipeToTargetWithCursor(
                     source, target, remaining, recipe,
-                    sourceAllowedSlots, provider,
+                    sourceAllowedSlots, provider, filterReadCache,
                     cursorEntry, cursorRemaining);
 
             totalMoved += result.moved();
@@ -1292,12 +1297,14 @@ public class TransferEngine {
 
     private static int getPerEntryItemAmountLimit(ItemStack candidate, ItemStack[] exportFilters,
             ItemStack[] importFilters, Map<Item, Integer> sourceCounts, Map<Item, Integer> targetCounts,
-            HolderLookup.Provider provider) {
+            HolderLookup.Provider provider, @Nullable CompoundTag candidateComponents,
+            @Nullable FilterItemData.ReadCache filterReadCache) {
         int allowed = Integer.MAX_VALUE;
 
         if (exportFilters != null) {
             for (ItemStack filter : exportFilters) {
-                int threshold = FilterItemData.getItemAmountThresholdFull(filter, candidate, provider);
+                int threshold = FilterItemData.getItemAmountThresholdFull(filter, candidate, provider,
+                        candidateComponents, filterReadCache);
                 if (threshold > 0) {
                     int sourceCount = sourceCounts != null ? sourceCounts.getOrDefault(candidate.getItem(), 0) : 0;
                     int exportCap = sourceCount - threshold;
@@ -1310,7 +1317,8 @@ public class TransferEngine {
 
         if (importFilters != null) {
             for (ItemStack filter : importFilters) {
-                int threshold = FilterItemData.getItemAmountThresholdFull(filter, candidate, provider);
+                int threshold = FilterItemData.getItemAmountThresholdFull(filter, candidate, provider,
+                        candidateComponents, filterReadCache);
                 if (threshold > 0) {
                     int targetCount = targetCounts != null ? targetCounts.getOrDefault(candidate.getItem(), 0) : 0;
                     int importCap = threshold - targetCount;

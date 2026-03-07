@@ -15,6 +15,12 @@ public final class FilterLogic {
 
     public static boolean matchesItem(ItemStack[] filters, FilterMode filterMode, ItemStack candidate,
             HolderLookup.Provider provider, @Nullable CompoundTag candidateNbt) {
+        return matchesItem(filters, filterMode, candidate, provider, candidateNbt, null);
+    }
+
+    public static boolean matchesItem(ItemStack[] filters, FilterMode filterMode, ItemStack candidate,
+            HolderLookup.Provider provider, @Nullable CompoundTag candidateNbt,
+            @Nullable FilterItemData.ReadCache filterReadCache) {
         if (filters == null || filters.length == 0)
             return true;
         if (candidate.isEmpty())
@@ -37,10 +43,10 @@ public final class FilterLogic {
 
             // Check each filter type
             if (FilterItemData.isFilterItem(filter)
-                    && (FilterItemData.hasAnyItemEntries(filter) || FilterItemData.hasAnyTagEntries(filter))) {
+                    && FilterItemData.hasAnyItemMatchEntries(filter, filterReadCache)) {
                 isFilter = true;
-                matched = FilterItemData.containsItemFull(filter, candidate, provider);
-                isBlacklist = FilterItemData.isBlacklist(filter);
+                matched = FilterItemData.containsItemFull(filter, candidate, provider, candidateNbt, filterReadCache);
+                isBlacklist = FilterItemData.isBlacklist(filter, filterReadCache);
             } else if (TagFilterData.isTagFilterItem(filter) && TagFilterData.hasAnyTags(filter)
                     && TagFilterData.getTargetType(filter) == FilterTargetType.ITEMS) {
                 isFilter = true;

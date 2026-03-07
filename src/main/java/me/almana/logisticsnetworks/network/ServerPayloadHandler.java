@@ -308,8 +308,10 @@ public class ServerPayloadHandler {
             Player player = (Player) context.player();
             ItemStack filterStack = findOpenFilterStack(player, TagFilterData::isTagFilterItem);
             if (TagFilterData.isTagFilterItem(filterStack)) {
-                boolean changed = payload.remove() ? TagFilterData.removeTagFilter(filterStack, payload.tag())
-                        : TagFilterData.addTagFilter(filterStack, payload.tag());
+                String normalizedTag = FilterTagUtil.normalizeTag(payload.tag());
+                boolean changed = normalizedTag != null
+                        && (payload.remove() ? TagFilterData.removeTagFilter(filterStack, normalizedTag)
+                                : TagFilterData.addTagFilter(filterStack, normalizedTag));
                 if (changed) {
                     player.getInventory().setChanged();
                     if (player.containerMenu instanceof FilterMenu menu && menu.isTagMode()) {
@@ -379,10 +381,11 @@ public class ServerPayloadHandler {
     public static void handleSetFilterEntryTag(SetFilterEntryTagPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player().containerMenu instanceof FilterMenu menu && !isSpecialMode(menu)) {
-                if (payload.tag() == null || payload.tag().isEmpty()) {
+                String normalizedTag = FilterTagUtil.normalizeTag(payload.tag());
+                if (normalizedTag == null) {
                     menu.clearEntryTag(payload.slot());
                 } else {
-                    menu.setEntryTag((Player) context.player(), payload.slot(), payload.tag());
+                    menu.setEntryTag((Player) context.player(), payload.slot(), normalizedTag);
                 }
             }
         });

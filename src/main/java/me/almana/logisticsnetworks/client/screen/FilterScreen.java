@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 import me.almana.logisticsnetworks.filter.DurabilityFilterData;
 import me.almana.logisticsnetworks.filter.FilterItemData;
+import me.almana.logisticsnetworks.filter.FilterTagUtil;
 import me.almana.logisticsnetworks.filter.FilterTargetType;
 import me.almana.logisticsnetworks.filter.NameFilterData;
 import me.almana.logisticsnetworks.filter.NameMatchScope;
@@ -378,16 +379,18 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
                 String tag = menu.getEntryTag(i);
                 if (tag != null) {
                     // cycle items from tag
-                    TagKey<Item> tagKey = TagKey.create(
-                            Registries.ITEM, ResourceLocation.parse(tag));
-                    var holders = BuiltInRegistries.ITEM.getTag(tagKey);
-                    if (holders.isPresent()) {
-                        var list = holders.get().stream().toList();
-                        if (!list.isEmpty()) {
-                            long tick = (System.currentTimeMillis() / 1000);
-                            int idx = (int) (tick % list.size());
-                            ItemStack display = new ItemStack(list.get(idx));
-                            g.renderItem(display, sx + 1, sy + 1);
+                    ResourceLocation tagId = ResourceLocation.tryParse(tag);
+                    if (tagId != null) {
+                        TagKey<Item> tagKey = TagKey.create(Registries.ITEM, tagId);
+                        var holders = BuiltInRegistries.ITEM.getTag(tagKey);
+                        if (holders.isPresent()) {
+                            var list = holders.get().stream().toList();
+                            if (!list.isEmpty()) {
+                                long tick = (System.currentTimeMillis() / 1000);
+                                int idx = (int) (tick % list.size());
+                                ItemStack display = new ItemStack(list.get(idx));
+                                g.renderItem(display, sx + 1, sy + 1);
+                            }
                         }
                     }
                 }
@@ -1365,13 +1368,15 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     }
 
     private void sendTagUpdate(String tag) {
-        menu.setSelectedTag(tag == null || tag.isBlank() ? null : tag.trim());
-        PacketDistributor.sendToServer(new ModifyFilterTagPayload(tag == null ? "" : tag, false));
+        String normalizedTag = FilterTagUtil.normalizeTag(tag);
+        menu.setSelectedTag(normalizedTag);
+        PacketDistributor.sendToServer(new ModifyFilterTagPayload(normalizedTag == null ? "" : normalizedTag, false));
     }
 
     private void sendTagRemove(String tag) {
+        String normalizedTag = FilterTagUtil.normalizeTag(tag);
         menu.setSelectedTag(null);
-        PacketDistributor.sendToServer(new ModifyFilterTagPayload(tag == null ? "" : tag, true));
+        PacketDistributor.sendToServer(new ModifyFilterTagPayload(normalizedTag == null ? "" : normalizedTag, true));
     }
 
     private void sendModUpdate(String mod) {
@@ -2134,10 +2139,11 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
     private void commitTagInput() {
         if (tagInputBox == null || tagEditSlot < 0)
             return;
-        String val = tagInputBox.getValue().trim();
-        if (!val.isEmpty()) {
-            PacketDistributor.sendToServer(new SetFilterEntryTagPayload(tagEditSlot, val));
-            menu.setEntryTag(null, tagEditSlot, val);
+        String rawValue = tagInputBox.getValue();
+        String normalizedTag = FilterTagUtil.normalizeTag(rawValue);
+        if (normalizedTag != null) {
+            PacketDistributor.sendToServer(new SetFilterEntryTagPayload(tagEditSlot, normalizedTag));
+            menu.setEntryTag(null, tagEditSlot, normalizedTag);
         }
         closeTagSubMode();
     }

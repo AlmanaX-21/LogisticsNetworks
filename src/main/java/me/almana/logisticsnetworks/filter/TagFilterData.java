@@ -225,20 +225,7 @@ public final class TagFilterData {
     }
 
     private static String normalizeTag(String tagValue) {
-        if (tagValue == null) {
-            return null;
-        }
-
-        String cleaned = tagValue.trim();
-        if (cleaned.startsWith("#")) {
-            cleaned = cleaned.substring(1);
-        }
-        if (cleaned.isEmpty()) {
-            return null;
-        }
-
-        ResourceLocation id = ResourceLocation.tryParse(cleaned);
-        return id == null ? null : id.toString();
+        return FilterTagUtil.normalizeTag(tagValue);
     }
 
     private static CompoundTag getRootTag(ItemStack stack) {

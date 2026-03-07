@@ -271,7 +271,7 @@ public class FilterMenu extends AbstractContainerMenu {
     }
 
     public void setSelectedTag(String tag) {
-        this.selectedTag = (tag == null || tag.isBlank()) ? null : tag.trim();
+        this.selectedTag = FilterTagUtil.normalizeTag(tag);
     }
 
     public String getSelectedMod() {
@@ -420,7 +420,12 @@ public class FilterMenu extends AbstractContainerMenu {
     public void setEntryTag(Player player, int slot, String tag) {
         if (isSpecialMode || slot < 0 || slot >= slotCount)
             return;
-        FilterItemData.setEntryTag(getOpenedStack(), slot, tag);
+        String normalizedTag = FilterTagUtil.normalizeTag(tag);
+        if (normalizedTag == null) {
+            clearEntryTag(slot);
+            return;
+        }
+        FilterItemData.setEntryTag(getOpenedStack(), slot, normalizedTag);
         isTagSlot[slot] = true;
         isFluidSlot[slot] = false;
         isChemicalSlot[slot] = false;
