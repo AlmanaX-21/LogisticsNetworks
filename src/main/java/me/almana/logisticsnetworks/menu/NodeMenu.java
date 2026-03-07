@@ -31,10 +31,10 @@ public class NodeMenu extends AbstractContainerMenu {
 
     // Grid Layout constants
     private static final int FILTER_GRID_X = 168;
-    private static final int FILTER_GRID_Y = 50;
+    private static final int FILTER_GRID_Y = 54;
     private static final int FILTER_SLOTS = 9;
 
-    private static final int UPGRADE_GRID_Y = 119;
+    private static final int UPGRADE_GRID_Y = 123;
     private static final int UPGRADE_SLOTS = LogisticsNodeEntity.UPGRADE_SLOT_COUNT;
     private static final int GRID_STEP = 19;
 

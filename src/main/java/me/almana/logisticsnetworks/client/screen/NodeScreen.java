@@ -13,7 +13,9 @@ import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
 import me.almana.logisticsnetworks.menu.NodeMenu;
 import me.almana.logisticsnetworks.network.AssignNetworkPayload;
 import me.almana.logisticsnetworks.network.RenameNetworkPayload;
+import me.almana.logisticsnetworks.network.RequestNetworkLabelsPayload;
 import me.almana.logisticsnetworks.network.SelectNodeChannelPayload;
+import me.almana.logisticsnetworks.network.SetNodeLabelPayload;
 import me.almana.logisticsnetworks.network.SyncNetworkListPayload;
 import me.almana.logisticsnetworks.network.ToggleNodeVisibilityPayload;
 import me.almana.logisticsnetworks.network.UpdateChannelPayload;
@@ -86,6 +88,20 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
     // Rename state
     private UUID renamingNetworkId = null;
     private EditBox renameEditBox = null;
+
+    // Settings scroll state
+    private int settingsScrollOffset = 0;
+    private static final int SETTINGS_VISIBLE_ROWS = 6;
+    private static final int SETTINGS_TOTAL_ROWS = 9;
+
+    // Label picker state
+    private boolean labelPickerOpen = false;
+    private EditBox labelEditBox = null;
+    private List<String> networkLabels = new ArrayList<>();
+    private int labelScrollOffset = 0;
+    private static final int LABEL_PICKER_WIDTH = 140;
+    private static final int LABEL_PICKER_ENTRY_H = 14;
+    private static final int LABEL_PICKER_MAX_VISIBLE = 5;
 
     public NodeScreen(NodeMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -314,14 +330,75 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
         drawButton(g, leftPos + GUI_WIDTH - 50, topPos + 4, 42, 12,
                 tr("gui.logisticsnetworks.node.change_network"), mx, my);
 
-        drawChannelTabs(g, node, topPos + 20);
+        drawChannelTabs(g, node, topPos + 16);
+
+        // Label button centered above settings panel
+        String nodeLabel = node.getNodeLabel();
+        String labelDisplay = nodeLabel.isEmpty() ? "Set Label" : nodeLabel;
+        int labelW = font.width(labelDisplay) + 8;
+        int labelX = leftPos + 10 + (148 - labelW) / 2;
+        int labelY = topPos + 34;
+        drawButton(g, labelX, labelY, labelW, 10, labelDisplay, mx, my);
 
         ChannelData channel = node.getChannel(selectedChannel);
         if (channel == null)
             return;
 
-        drawSettingsPanel(g, channel, leftPos + 10, topPos + 38, mx, my);
-        drawFilterGrid(g, channel, leftPos + 168, topPos + 38, mx, my);
+        drawSettingsPanel(g, channel, leftPos + 10, topPos + 48, mx, my);
+        drawFilterGrid(g, channel, leftPos + 168, topPos + 42, mx, my);
+
+        // Render label picker overlay if open (on top of everything)
+        if (labelPickerOpen) {
+            renderLabelPicker(g, mx, my);
+        }
+    }
+
+    private void renderLabelPicker(GuiGraphics g, int mx, int my) {
+        int pickerX = leftPos + (GUI_WIDTH - LABEL_PICKER_WIDTH) / 2;
+        int pickerY = topPos + 48;
+        int entryCount = Math.min(networkLabels.size(), LABEL_PICKER_MAX_VISIBLE);
+        int listH = entryCount * LABEL_PICKER_ENTRY_H;
+        int pickerH = 22 + listH + (networkLabels.isEmpty() ? 0 : 4) + 16; // edit + list + clear btn
+
+        // Background
+        g.fill(pickerX - 1, pickerY - 1, pickerX + LABEL_PICKER_WIDTH + 1, pickerY + pickerH + 1, COLOR_BORDER);
+        g.fill(pickerX, pickerY, pickerX + LABEL_PICKER_WIDTH, pickerY + pickerH, 0xFF1E1E1E);
+
+        // Edit box is rendered by Minecraft widget system
+
+        // Existing labels list
+        int listY = pickerY + 22;
+        int maxScroll = Math.max(0, networkLabels.size() - LABEL_PICKER_MAX_VISIBLE);
+        labelScrollOffset = Math.max(0, Math.min(labelScrollOffset, maxScroll));
+
+        for (int i = 0; i < LABEL_PICKER_MAX_VISIBLE && (i + labelScrollOffset) < networkLabels.size(); i++) {
+            int idx = i + labelScrollOffset;
+            String label = networkLabels.get(idx);
+            int entryY = listY + i * LABEL_PICKER_ENTRY_H;
+            boolean hovered = mx >= pickerX + 2 && mx < pickerX + LABEL_PICKER_WIDTH - 2
+                    && my >= entryY && my < entryY + LABEL_PICKER_ENTRY_H;
+            if (hovered) {
+                g.fill(pickerX + 2, entryY, pickerX + LABEL_PICKER_WIDTH - 2,
+                        entryY + LABEL_PICKER_ENTRY_H, COLOR_HOVER);
+            }
+            String display = label;
+            if (font.width(display) > LABEL_PICKER_WIDTH - 8) {
+                display = font.plainSubstrByWidth(display, LABEL_PICKER_WIDTH - 13) + "...";
+            }
+            g.drawString(font, display, pickerX + 4, entryY + 3, 0xFF88AACC);
+        }
+
+        // Clear button
+        int clearY = listY + listH + 2;
+        String clearLabel = "Clear Label";
+        int clearW = font.width(clearLabel) + 8;
+        int clearX = pickerX + (LABEL_PICKER_WIDTH - clearW) / 2;
+        boolean clearHovered = mx >= clearX && mx < clearX + clearW
+                && my >= clearY && my < clearY + 12;
+        g.fill(clearX, clearY, clearX + clearW, clearY + 12,
+                clearHovered ? COLOR_BTN_HOVER : COLOR_BTN_BG);
+        g.renderOutline(clearX, clearY, clearW, 12, COLOR_BTN_BORDER);
+        g.drawString(font, clearLabel, clearX + 4, clearY + 2, COLOR_GRAY);
     }
 
     private String getNetworkName(UUID netId) {
@@ -385,41 +462,64 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
     private void drawSettingsPanel(GuiGraphics g, ChannelData ch, int x, int y, int mx, int my) {
         int w = 148;
         int rowH = 13;
-        int h = rowH * 9 + 4;
+        int h = rowH * SETTINGS_VISIBLE_ROWS + 4;
 
         g.fill(x, y, x + w, y + h, COLOR_PANEL);
         g.renderOutline(x, y, w, h, COLOR_BORDER);
+
+        // Build data for all 9 setting rows
+        String[] labels = {
+            tr("gui.logisticsnetworks.node.setting.status"),
+            tr("gui.logisticsnetworks.node.setting.mode"),
+            tr("gui.logisticsnetworks.node.setting.type"),
+            tr("gui.logisticsnetworks.node.setting.side"),
+            tr("gui.logisticsnetworks.node.setting.redstone"),
+            tr("gui.logisticsnetworks.node.setting.distribution"),
+            tr("gui.logisticsnetworks.node.setting.priority"),
+            tr("gui.logisticsnetworks.node.setting.batch"),
+            tr("gui.logisticsnetworks.node.setting.delay")
+        };
+        String[] values = {
+            ch.isEnabled() ? tr("gui.logisticsnetworks.node.value.enabled") : tr("gui.logisticsnetworks.node.value.disabled"),
+            getChannelModeLabel(ch.getMode()),
+            getChannelTypeLabel(ch.getType()),
+            getDirectionLabel(ch.getIoDirection().getName()),
+            getRedstoneModeLabel(ch.getRedstoneMode()),
+            getDistributionModeLabel(ch.getDistributionMode()),
+            editingRow == 6 ? "" : String.valueOf(ch.getPriority()),
+            editingRow == 7 ? "" : formatBatchDisplay(ch),
+            editingRow == 8 ? "" : tr("gui.logisticsnetworks.node.value.tick_delay", ch.getTickDelay())
+        };
+        int[] colors = {
+            ch.isEnabled() ? COLOR_ACCENT : 0xFFCC3333,
+            getModeColor(ch.getMode()),
+            COLOR_WHITE, COLOR_WHITE, 0xFFFF5555, 0xFFBB88FF, 0xFFFFDD44, COLOR_WHITE, COLOR_WHITE
+        };
+        boolean[] enabled = new boolean[9];
+        for (int i = 0; i < 9; i++) enabled[i] = !isSettingDisabled(ch, i);
+
+        // Clamp scroll offset
+        int maxScroll = SETTINGS_TOTAL_ROWS - SETTINGS_VISIBLE_ROWS;
+        settingsScrollOffset = Math.max(0, Math.min(settingsScrollOffset, maxScroll));
 
         int rowW = w - 4;
         int rx = x + 2;
         int ry = y + 2;
 
-        drawSettingRow(g, rx, ry, rowW, tr("gui.logisticsnetworks.node.setting.status"),
-                ch.isEnabled() ? tr("gui.logisticsnetworks.node.value.enabled")
-                        : tr("gui.logisticsnetworks.node.value.disabled"),
-                ch.isEnabled() ? COLOR_ACCENT : 0xFFCC3333, mx, my, true);
-        drawSettingRow(g, rx, ry + rowH, rowW, tr("gui.logisticsnetworks.node.setting.mode"),
-                getChannelModeLabel(ch.getMode()),
-                getModeColor(ch.getMode()), mx, my, true);
-        drawSettingRow(g, rx, ry + rowH * 2, rowW, tr("gui.logisticsnetworks.node.setting.type"),
-                getChannelTypeLabel(ch.getType()), COLOR_WHITE, mx, my, true);
-        drawSettingRow(g, rx, ry + rowH * 3, rowW, tr("gui.logisticsnetworks.node.setting.side"),
-                getDirectionLabel(ch.getIoDirection().getName()), COLOR_WHITE, mx, my, true);
-        drawSettingRow(g, rx, ry + rowH * 4, rowW, tr("gui.logisticsnetworks.node.setting.redstone"),
-                getRedstoneModeLabel(ch.getRedstoneMode()), 0xFFFF5555,
-                mx, my, !isSettingDisabled(ch, 4));
-        drawSettingRow(g, rx, ry + rowH * 5, rowW, tr("gui.logisticsnetworks.node.setting.distribution"),
-                getDistributionModeLabel(ch.getDistributionMode()),
-                0xFFBB88FF, mx, my, !isSettingDisabled(ch, 5));
-        drawSettingRow(g, rx, ry + rowH * 6, rowW, tr("gui.logisticsnetworks.node.setting.priority"),
-                editingRow == 6 ? "" : String.valueOf(ch.getPriority()),
-                0xFFFFDD44, mx, my, true);
-        drawSettingRow(g, rx, ry + rowH * 7, rowW, tr("gui.logisticsnetworks.node.setting.batch"),
-                editingRow == 7 ? "" : formatBatchDisplay(ch),
-                COLOR_WHITE, mx, my, !isSettingDisabled(ch, 7));
-        drawSettingRow(g, rx, ry + rowH * 8, rowW, tr("gui.logisticsnetworks.node.setting.delay"),
-                editingRow == 8 ? "" : tr("gui.logisticsnetworks.node.value.tick_delay", ch.getTickDelay()),
-                COLOR_WHITE, mx, my, !isSettingDisabled(ch, 8));
+        // Draw visible rows
+        for (int vi = 0; vi < SETTINGS_VISIBLE_ROWS; vi++) {
+            int row = vi + settingsScrollOffset;
+            if (row >= SETTINGS_TOTAL_ROWS) break;
+            drawSettingRow(g, rx, ry + vi * rowH, rowW, labels[row], values[row], colors[row], mx, my, enabled[row]);
+        }
+
+        // Scroll indicators (outside panel, to the right)
+        if (settingsScrollOffset > 0) {
+            g.drawString(font, "\u25B2", x + w + 2, y + 1, COLOR_DARK_GRAY, false);
+        }
+        if (settingsScrollOffset < maxScroll) {
+            g.drawString(font, "\u25BC", x + w + 2, y + h - 9, COLOR_DARK_GRAY, false);
+        }
     }
 
     private void drawFilterGrid(GuiGraphics g, ChannelData ch, int x, int y, int mx, int my) {
@@ -569,10 +669,101 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
         renamingNetworkId = null;
     }
 
+    private void openLabelPicker(LogisticsNodeEntity node) {
+        closeLabelPicker();
+        labelPickerOpen = true;
+        labelScrollOffset = 0;
+
+        int pickerX = leftPos + (GUI_WIDTH - LABEL_PICKER_WIDTH) / 2;
+        int pickerY = topPos + 48;
+
+        labelEditBox = new EditBox(font, pickerX + 2, pickerY + 2, LABEL_PICKER_WIDTH - 4, 16, Component.empty());
+        labelEditBox.setMaxLength(32);
+        labelEditBox.setValue(node.getNodeLabel());
+        labelEditBox.setBordered(true);
+        labelEditBox.setTextColor(COLOR_WHITE);
+        labelEditBox.setFocused(true);
+        addRenderableWidget(labelEditBox);
+        setFocused(labelEditBox);
+
+        // Request existing labels from server
+        if (node.getNetworkId() != null) {
+            PacketDistributor.sendToServer(new RequestNetworkLabelsPayload(node.getNetworkId()));
+        }
+    }
+
+    private void closeLabelPicker() {
+        labelPickerOpen = false;
+        if (labelEditBox != null) {
+            removeWidget(labelEditBox);
+            labelEditBox = null;
+        }
+        networkLabels.clear();
+    }
+
+    private void commitLabelChange(String label) {
+        LogisticsNodeEntity node = getMenu().getNode();
+        if (node != null) {
+            PacketDistributor.sendToServer(new SetNodeLabelPayload(node.getId(), label));
+        }
+        closeLabelPicker();
+    }
+
+    private boolean handleLabelPickerClick(LogisticsNodeEntity node, double mx, double my) {
+        int pickerX = leftPos + (GUI_WIDTH - LABEL_PICKER_WIDTH) / 2;
+        int pickerY = topPos + 48;
+        int entryCount = Math.min(networkLabels.size(), LABEL_PICKER_MAX_VISIBLE);
+        int listH = entryCount * LABEL_PICKER_ENTRY_H;
+        int pickerH = 22 + listH + (networkLabels.isEmpty() ? 0 : 4) + 16;
+
+        // Check if click is inside picker area
+        if (mx < pickerX || mx > pickerX + LABEL_PICKER_WIDTH || my < pickerY || my > pickerY + pickerH) {
+            return false; // Outside picker
+        }
+
+        // Check label list entries
+        int listY = pickerY + 22;
+        for (int i = 0; i < LABEL_PICKER_MAX_VISIBLE && (i + labelScrollOffset) < networkLabels.size(); i++) {
+            int idx = i + labelScrollOffset;
+            int entryY = listY + i * LABEL_PICKER_ENTRY_H;
+            if (mx >= pickerX + 2 && mx < pickerX + LABEL_PICKER_WIDTH - 2
+                    && my >= entryY && my < entryY + LABEL_PICKER_ENTRY_H) {
+                commitLabelChange(networkLabels.get(idx));
+                return true;
+            }
+        }
+
+        // Check clear button
+        int clearY = listY + listH + 2;
+        String clearLabel = "Clear Label";
+        int clearW = font.width(clearLabel) + 8;
+        int clearX = pickerX + (LABEL_PICKER_WIDTH - clearW) / 2;
+        if (mx >= clearX && mx < clearX + clearW && my >= clearY && my < clearY + 12) {
+            commitLabelChange("");
+            return true;
+        }
+
+        return true; // Absorb click inside picker
+    }
+
+    public void receiveNetworkLabels(List<String> labels) {
+        this.networkLabels = new ArrayList<>(labels);
+        this.labelScrollOffset = 0;
+    }
+
     private boolean handleChannelPageClick(double mx, double my, int btn) {
         LogisticsNodeEntity node = getMenu().getNode();
         if (node == null)
             return false;
+
+        // Handle label picker clicks first if open
+        if (labelPickerOpen) {
+            if (handleLabelPickerClick(node, mx, my))
+                return true;
+            // Click outside picker closes it
+            closeLabelPicker();
+            return true;
+        }
 
         String visibilityLabel = getVisibilityLabel(node.isRenderVisible());
         if (isHoveringAbs(leftPos + 8, topPos + 4, font.width(visibilityLabel) + 10, 12, mx, my)) {
@@ -587,9 +778,21 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
             return true;
         }
 
+        // Label button click
+        String nodeLabel = node.getNodeLabel();
+        String labelDisplay = nodeLabel.isEmpty() ? "Set Label" : nodeLabel;
+        int labelW = font.width(labelDisplay) + 8;
+        int labelX = leftPos + 10 + (148 - labelW) / 2;
+        int labelY = topPos + 34;
+        if (isHoveringAbs(labelX, labelY, labelW, 10, mx, my)) {
+            openLabelPicker(node);
+            return true;
+        }
+
         for (int i = 0; i < 9; i++) {
-            if (isHoveringAbs(leftPos + 10 + i * 26, topPos + 20, 24, 14, mx, my)) {
+            if (isHoveringAbs(leftPos + 10 + i * 26, topPos + 16, 24, 14, mx, my)) {
                 selectedChannel = i;
+                settingsScrollOffset = 0;
                 getMenu().setSelectedChannel(i);
                 PacketDistributor.sendToServer(new SelectNodeChannelPayload(node.getId(), i));
                 return true;
@@ -605,12 +808,14 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
             return false;
 
         int rowH = 13;
-        int startY = topPos + 40;
+        int startY = topPos + 50;
         int startX = leftPos + 12;
         int w = 144;
 
-        for (int row = 0; row < 9; row++) {
-            int y = startY + row * rowH;
+        for (int vi = 0; vi < SETTINGS_VISIBLE_ROWS; vi++) {
+            int row = vi + settingsScrollOffset;
+            if (row >= SETTINGS_TOTAL_ROWS) break;
+            int y = startY + vi * rowH;
             if (isHoveringAbs(startX, y, w, rowH, mx, my)) {
                 if (isSettingDisabled(ch, row))
                     return true;
@@ -635,7 +840,7 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
         }
 
         int modeBtnX = leftPos + 168 + font.width(tr("gui.logisticsnetworks.node.filters")) + 4;
-        int modeBtnY = topPos + 38 - 1;
+        int modeBtnY = topPos + 42 - 1;
         String modeLabel = getFilterModeLabel(ch.getFilterMode());
         int modeBtnW = font.width(modeLabel) + 8;
 
@@ -827,6 +1032,10 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
         if (key == 256) {
+            if (labelPickerOpen) {
+                closeLabelPicker();
+                return true;
+            }
             if (renamingNetworkId != null) {
                 stopRenameEdit(false);
                 return true;
@@ -834,6 +1043,15 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
             return super.keyPressed(key, scan, modifiers);
         }
 
+        if (labelPickerOpen && labelEditBox != null) {
+            if (key == 257 || key == 335) {
+                String val = labelEditBox.getValue().trim();
+                commitLabelChange(val);
+            } else {
+                labelEditBox.keyPressed(key, scan, modifiers);
+            }
+            return true;
+        }
         if (renamingNetworkId != null && renameEditBox != null) {
             if (key == 257 || key == 335) {
                 stopRenameEdit(true);
@@ -861,6 +1079,9 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
 
     @Override
     public boolean charTyped(char ch, int modifiers) {
+        if (labelPickerOpen && labelEditBox != null) {
+            return labelEditBox.charTyped(ch, modifiers);
+        }
         if (renamingNetworkId != null && renameEditBox != null) {
             return renameEditBox.charTyped(ch, modifiers);
         }
@@ -877,6 +1098,39 @@ public class NodeScreen extends AbstractContainerScreen<NodeMenu> {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+        if (labelPickerOpen && networkLabels.size() > LABEL_PICKER_MAX_VISIBLE) {
+            int pickerX = leftPos + (GUI_WIDTH - LABEL_PICKER_WIDTH) / 2;
+            int pickerY = topPos + 48;
+            int entryCount = Math.min(networkLabels.size(), LABEL_PICKER_MAX_VISIBLE);
+            int listH = entryCount * LABEL_PICKER_ENTRY_H;
+            int pickerH = 22 + listH + (networkLabels.isEmpty() ? 0 : 4) + 16;
+            if (mx >= pickerX && mx <= pickerX + LABEL_PICKER_WIDTH
+                    && my >= pickerY && my <= pickerY + pickerH) {
+                int maxScroll = networkLabels.size() - LABEL_PICKER_MAX_VISIBLE;
+                if (sy > 0 && labelScrollOffset > 0)
+                    labelScrollOffset--;
+                else if (sy < 0 && labelScrollOffset < maxScroll)
+                    labelScrollOffset++;
+                return true;
+            }
+        }
+        if (currentPage == Page.CHANNEL_CONFIG) {
+            // Settings panel scroll
+            int panelX = leftPos + 10;
+            int panelY = topPos + 48;
+            int panelW = 148;
+            int panelH = 13 * SETTINGS_VISIBLE_ROWS + 4;
+            if (mx >= panelX && mx <= panelX + panelW && my >= panelY && my <= panelY + panelH) {
+                int maxScroll = SETTINGS_TOTAL_ROWS - SETTINGS_VISIBLE_ROWS;
+                if (sy > 0 && settingsScrollOffset > 0) {
+                    settingsScrollOffset--;
+                    return true;
+                } else if (sy < 0 && settingsScrollOffset < maxScroll) {
+                    settingsScrollOffset++;
+                    return true;
+                }
+            }
+        }
         if (currentPage == Page.NETWORK_SELECT) {
             if (sy > 0 && networkScrollOffset > 0)
                 networkScrollOffset--;

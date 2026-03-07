@@ -24,10 +24,15 @@ import me.almana.logisticsnetworks.network.SetFilterPayload;
 import me.almana.logisticsnetworks.network.SetNodeUpgradeItemPayload;
 import me.almana.logisticsnetworks.network.ApplyPatternPayload;
 import me.almana.logisticsnetworks.network.RenameNetworkPayload;
+import me.almana.logisticsnetworks.network.RequestNetworkLabelsPayload;
+import me.almana.logisticsnetworks.network.RequestNetworkNodesPayload;
+import me.almana.logisticsnetworks.network.SetNodeLabelPayload;
 import me.almana.logisticsnetworks.network.OpenFilterInSlotPayload;
 import me.almana.logisticsnetworks.network.SetNameFilterPayload;
 import me.almana.logisticsnetworks.network.SetSlotFilterSlotsPayload;
 import me.almana.logisticsnetworks.network.SyncNetworkListPayload;
+import me.almana.logisticsnetworks.network.SyncNetworkLabelsPayload;
+import me.almana.logisticsnetworks.network.SyncNetworkNodesPayload;
 import me.almana.logisticsnetworks.network.ToggleNodeVisibilityPayload;
 import me.almana.logisticsnetworks.network.UpdateChannelPayload;
 import me.almana.logisticsnetworks.registration.Registration;
@@ -116,9 +121,19 @@ public class Logisticsnetworks {
                                 ServerPayloadHandler::handleRenameNetwork);
                 registrar.playToServer(ApplyPatternPayload.TYPE, ApplyPatternPayload.STREAM_CODEC,
                                 ServerPayloadHandler::handleApplyPattern);
+                registrar.playToServer(RequestNetworkNodesPayload.TYPE, RequestNetworkNodesPayload.STREAM_CODEC,
+                                ServerPayloadHandler::handleRequestNetworkNodes);
+                registrar.playToServer(SetNodeLabelPayload.TYPE, SetNodeLabelPayload.STREAM_CODEC,
+                                ServerPayloadHandler::handleSetNodeLabel);
+                registrar.playToServer(RequestNetworkLabelsPayload.TYPE, RequestNetworkLabelsPayload.STREAM_CODEC,
+                                ServerPayloadHandler::handleRequestNetworkLabels);
 
                 // Server -> Client
                 registrar.playToClient(SyncNetworkListPayload.TYPE, SyncNetworkListPayload.STREAM_CODEC,
                                 ClientPayloadHandler::handleSyncNetworkList);
+                registrar.playToClient(SyncNetworkNodesPayload.TYPE, SyncNetworkNodesPayload.STREAM_CODEC,
+                                ClientPayloadHandler::handleSyncNetworkNodes);
+                registrar.playToClient(SyncNetworkLabelsPayload.TYPE, SyncNetworkLabelsPayload.STREAM_CODEC,
+                                ClientPayloadHandler::handleSyncNetworkLabels);
         }
 }

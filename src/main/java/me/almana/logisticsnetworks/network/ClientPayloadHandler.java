@@ -23,4 +23,22 @@ public class ClientPayloadHandler {
             }
         });
     }
+
+    public static void handleSyncNetworkNodes(SyncNetworkNodesPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            var screen = Minecraft.getInstance().screen;
+            if (screen instanceof ComputerScreen computerScreen) {
+                computerScreen.receiveNetworkNodes(payload.networkId(), payload.nodes());
+            }
+        });
+    }
+
+    public static void handleSyncNetworkLabels(SyncNetworkLabelsPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            var screen = Minecraft.getInstance().screen;
+            if (screen instanceof NodeScreen nodeScreen) {
+                nodeScreen.receiveNetworkLabels(payload.labels());
+            }
+        });
+    }
 }

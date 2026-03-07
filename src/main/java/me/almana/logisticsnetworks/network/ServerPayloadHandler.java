@@ -5,11 +5,13 @@ import me.almana.logisticsnetworks.integration.ftbteams.FTBTeamsCompat;
 import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
 import me.almana.logisticsnetworks.filter.*;
 import me.almana.logisticsnetworks.item.*;
+import me.almana.logisticsnetworks.menu.ComputerMenu;
 import me.almana.logisticsnetworks.menu.FilterMenu;
 import me.almana.logisticsnetworks.menu.NodeMenu;
 import me.almana.logisticsnetworks.menu.PatternSetterMenu;
 import me.almana.logisticsnetworks.registration.ModTags;
 import me.almana.logisticsnetworks.upgrade.NodeUpgradeData;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.Tag;
@@ -22,8 +24,14 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import me.almana.logisticsnetworks.network.SetFilterChemicalEntryPayload;
 
@@ -41,6 +49,7 @@ public class ServerPayloadHandler {
 
             updateChannelData(channel, payload);
             clampChannelToUpgradeLimits(node, channel);
+            propagateToLabelGroup(node, payload.channelIndex());
             markNetworkDirty(node);
         });
     }
@@ -272,6 +281,7 @@ public class ServerPayloadHandler {
 
             channel.setFilterItem(payload.filterSlot(),
                     payload.filterItem().is(ModTags.FILTERS) ? payload.filterItem().copyWithCount(1) : ItemStack.EMPTY);
+            propagateToLabelGroup(node, payload.channelIndex());
             markNetworkDirty(node);
         });
     }
@@ -592,5 +602,157 @@ public class ServerPayloadHandler {
             case SOURCE -> NodeUpgradeData.getSourceOperationCap(node);
             default -> NodeUpgradeData.getItemOperationCap(node);
         };
+    }
+
+    public static void handleRequestNetworkNodes(RequestNetworkNodesPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player))
+                return;
+            if (!(player.containerMenu instanceof ComputerMenu))
+                return;
+
+            NetworkRegistry registry = NetworkRegistry.get(player.serverLevel());
+            LogisticsNetwork network = registry.getNetwork(payload.networkId());
+            if (network == null)
+                return;
+
+            // Ownership check
+            if (network.getOwnerUuid() != null
+                    && !network.getOwnerUuid().equals(player.getUUID())
+                    && !(FTBTeamsCompat.isLoaded()
+                            && FTBTeamsCompat.arePlayersInSameTeam(network.getOwnerUuid(), player.getUUID()))
+                    && !player.hasPermissions(2)) {
+                return;
+            }
+
+            List<SyncNetworkNodesPayload.NodeInfo> nodeInfos = new ArrayList<>();
+            for (UUID nodeId : network.getNodeUuids()) {
+                for (ServerLevel level : player.getServer().getAllLevels()) {
+                    Entity entity = level.getEntity(nodeId);
+                    if (entity instanceof LogisticsNodeEntity node) {
+                        BlockPos attachedPos = node.getAttachedPos();
+                        String blockName = "Unknown";
+                        if (level.isLoaded(attachedPos)) {
+                            BlockState state = level.getBlockState(attachedPos);
+                            blockName = state.getBlock().getName().getString();
+                        }
+                        nodeInfos.add(new SyncNetworkNodesPayload.NodeInfo(
+                                nodeId, node.blockPosition(), attachedPos, blockName, node.getNodeLabel()));
+                        break;
+                    }
+                }
+            }
+
+            PacketDistributor.sendToPlayer(player,
+                    new SyncNetworkNodesPayload(payload.networkId(), nodeInfos));
+        });
+    }
+
+    public static void handleSetNodeLabel(SetNodeLabelPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            LogisticsNodeEntity node = getNode(context, payload.entityId());
+            if (node == null)
+                return;
+
+            String label = payload.label().trim();
+            if (label.length() > 32)
+                label = label.substring(0, 32);
+
+            node.setNodeLabel(label);
+
+            // If label is non-empty and other nodes in the network have this label,
+            // copy their config onto this node
+            if (!label.isEmpty() && node.getNetworkId() != null
+                    && node.level() instanceof ServerLevel level) {
+                NetworkRegistry registry = NetworkRegistry.get(level);
+                LogisticsNetwork network = registry.getNetwork(node.getNetworkId());
+                if (network != null) {
+                    for (UUID otherId : network.getNodeUuids()) {
+                        if (otherId.equals(node.getUUID()))
+                            continue;
+                        for (ServerLevel sl : level.getServer().getAllLevels()) {
+                            Entity entity = sl.getEntity(otherId);
+                            if (entity instanceof LogisticsNodeEntity other
+                                    && label.equals(other.getNodeLabel())) {
+                                // Copy all channels from the existing labeled node
+                                for (int i = 0; i < LogisticsNodeEntity.CHANNEL_COUNT; i++) {
+                                    ChannelData src = other.getChannel(i);
+                                    ChannelData dst = node.getChannel(i);
+                                    if (src != null && dst != null) {
+                                        dst.copyFrom(src);
+                                        clampChannelToUpgradeLimits(node, dst);
+                                    }
+                                }
+                                markNetworkDirty(node);
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    public static void handleRequestNetworkLabels(RequestNetworkLabelsPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player))
+                return;
+
+            NetworkRegistry registry = NetworkRegistry.get(player.serverLevel());
+            LogisticsNetwork network = registry.getNetwork(payload.networkId());
+            if (network == null)
+                return;
+
+            Set<String> labels = new LinkedHashSet<>();
+            for (UUID nodeId : network.getNodeUuids()) {
+                for (ServerLevel level : player.getServer().getAllLevels()) {
+                    Entity entity = level.getEntity(nodeId);
+                    if (entity instanceof LogisticsNodeEntity node) {
+                        String label = node.getNodeLabel();
+                        if (!label.isEmpty()) {
+                            labels.add(label);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            PacketDistributor.sendToPlayer(player,
+                    new SyncNetworkLabelsPayload(new ArrayList<>(labels)));
+        });
+    }
+
+    private static void propagateToLabelGroup(LogisticsNodeEntity sourceNode, int channelIndex) {
+        String label = sourceNode.getNodeLabel();
+        if (label.isEmpty() || sourceNode.getNetworkId() == null)
+            return;
+        if (!(sourceNode.level() instanceof ServerLevel level))
+            return;
+
+        ChannelData sourceChannel = sourceNode.getChannel(channelIndex);
+        if (sourceChannel == null)
+            return;
+
+        NetworkRegistry registry = NetworkRegistry.get(level);
+        LogisticsNetwork network = registry.getNetwork(sourceNode.getNetworkId());
+        if (network == null)
+            return;
+
+        for (UUID otherId : network.getNodeUuids()) {
+            if (otherId.equals(sourceNode.getUUID()))
+                continue;
+            for (ServerLevel sl : level.getServer().getAllLevels()) {
+                Entity entity = sl.getEntity(otherId);
+                if (entity instanceof LogisticsNodeEntity other
+                        && label.equals(other.getNodeLabel())) {
+                    ChannelData dst = other.getChannel(channelIndex);
+                    if (dst != null) {
+                        dst.copyFrom(sourceChannel);
+                        clampChannelToUpgradeLimits(other, dst);
+                    }
+                    break;
+                }
+            }
+        }
     }
 }

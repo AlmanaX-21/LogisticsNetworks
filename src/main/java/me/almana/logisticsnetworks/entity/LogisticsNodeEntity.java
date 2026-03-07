@@ -53,6 +53,7 @@ public class LogisticsNodeEntity extends Entity {
     private static final String KEY_SLOT = "Slot";
     private static final String KEY_ITEM = "Item";
     private static final String KEY_OWNER_UUID = "OwnerUUID";
+    private static final String KEY_NODE_LABEL = "NodeLabel";
 
     private static final EntityDataAccessor<BlockPos> ATTACHED_POS = SynchedEntityData
             .defineId(LogisticsNodeEntity.class, EntityDataSerializers.BLOCK_POS);
@@ -66,6 +67,8 @@ public class LogisticsNodeEntity extends Entity {
             .defineId(LogisticsNodeEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Optional<UUID>> OWNER_UUID = SynchedEntityData
             .defineId(LogisticsNodeEntity.class, EntityDataSerializers.OPTIONAL_UUID);
+    private static final EntityDataAccessor<String> NODE_LABEL = SynchedEntityData
+            .defineId(LogisticsNodeEntity.class, EntityDataSerializers.STRING);
 
     private final ChannelData[] channels = new ChannelData[CHANNEL_COUNT];
     private final ItemStack[] upgradeItems = new ItemStack[UPGRADE_SLOT_COUNT];
@@ -103,6 +106,7 @@ public class LogisticsNodeEntity extends Entity {
         builder.define(NETWORK_NAME, "");
         builder.define(RENDER_VISIBLE, true);
         builder.define(OWNER_UUID, Optional.empty());
+        builder.define(NODE_LABEL, "");
     }
 
     @Override
@@ -123,6 +127,9 @@ public class LogisticsNodeEntity extends Entity {
         }
         if (compound.contains(KEY_OWNER_UUID)) {
             setOwnerUUID(compound.getUUID(KEY_OWNER_UUID));
+        }
+        if (compound.contains(KEY_NODE_LABEL, Tag.TAG_STRING)) {
+            setNodeLabel(compound.getString(KEY_NODE_LABEL));
         }
 
         HolderLookup.Provider provider = this.registryAccess();
@@ -169,6 +176,10 @@ public class LogisticsNodeEntity extends Entity {
         UUID owner = getOwnerUUID();
         if (owner != null) {
             compound.putUUID(KEY_OWNER_UUID, owner);
+        }
+        String label = getNodeLabel();
+        if (!label.isEmpty()) {
+            compound.putString(KEY_NODE_LABEL, label);
         }
 
         HolderLookup.Provider provider = registryAccess();
@@ -317,6 +328,14 @@ public class LogisticsNodeEntity extends Entity {
         if (FTBTeamsCompat.isLoaded() && FTBTeamsCompat.arePlayersInSameTeam(owner, player.getUUID())) return true;
         if (player instanceof ServerPlayer sp && sp.hasPermissions(2)) return true;
         return false;
+    }
+
+    public String getNodeLabel() {
+        return this.entityData.get(NODE_LABEL);
+    }
+
+    public void setNodeLabel(@Nullable String label) {
+        this.entityData.set(NODE_LABEL, label == null ? "" : label);
     }
 
     @Nullable
