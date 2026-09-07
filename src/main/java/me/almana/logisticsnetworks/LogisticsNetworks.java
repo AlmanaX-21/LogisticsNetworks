@@ -35,6 +35,8 @@ import me.almana.logisticsnetworks.network.SetFilterPayload;
 import me.almana.logisticsnetworks.network.SetNodeUpgradeItemPayload;
 import me.almana.logisticsnetworks.network.ApplyPatternPayload;
 import me.almana.logisticsnetworks.network.RenameNetworkPayload;
+import me.almana.logisticsnetworks.network.SetNetworkColorPayload;
+import me.almana.logisticsnetworks.network.SetWrenchColorsPayload;
 import me.almana.logisticsnetworks.network.RequestChannelListPayload;
 import me.almana.logisticsnetworks.network.RequestNetworkLabelsPayload;
 import me.almana.logisticsnetworks.network.RequestNetworkNodesPayload;
@@ -204,6 +206,10 @@ public class LogisticsNetworks {
                                 ServerPayloadHandler::handleCopyPasteConnected);
                 registrar.playToServer(RenameNetworkPayload.TYPE, RenameNetworkPayload.STREAM_CODEC,
                                 ServerPayloadHandler::handleRenameNetwork);
+                registrar.playToServer(SetNetworkColorPayload.TYPE, SetNetworkColorPayload.STREAM_CODEC,
+                                ServerPayloadHandler::handleSetNetworkColor);
+                registrar.playToServer(SetWrenchColorsPayload.TYPE, SetWrenchColorsPayload.STREAM_CODEC,
+                                ServerPayloadHandler::handleSetWrenchColors);
                 registrar.playToServer(ApplyPatternPayload.TYPE, ApplyPatternPayload.STREAM_CODEC,
                                 ServerPayloadHandler::handleApplyPattern);
                 registrar.playToServer(RequestNetworkNodesPayload.TYPE, RequestNetworkNodesPayload.STREAM_CODEC,

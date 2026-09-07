@@ -863,6 +863,7 @@ public final class NodeClipboardConfig {
 
         node.setNetworkId(targetNetworkId);
         node.setNetworkName(targetNetwork.getName());
+        node.setNetworkColor(targetNetwork.getColor());
         registry.addNodeToNetwork(targetNetworkId, node.getUUID());
 
         for (int i = 0; i < LogisticsNodeEntity.CHANNEL_COUNT; i++) {

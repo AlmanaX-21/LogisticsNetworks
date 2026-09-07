@@ -5,6 +5,7 @@ import me.almana.logisticsnetworks.client.ClientControls;
 import me.almana.logisticsnetworks.component.LegacyComponentMigration;
 import me.almana.logisticsnetworks.component.LogisticsDataComponents;
 import me.almana.logisticsnetworks.component.WrenchClipboard;
+import me.almana.logisticsnetworks.component.WrenchColors;
 import me.almana.logisticsnetworks.component.WrenchMassPlacement;
 import me.almana.logisticsnetworks.data.NodeClipboardConfig;
 import me.almana.logisticsnetworks.data.NetworkRegistry;
@@ -62,6 +63,11 @@ public class WrenchItem extends Item {
 
     private static final int MAX_MASS_SELECTIONS = 10_000;
     private static final int MAX_MASS_NODES = 2048;
+
+    public static final int DEFAULT_CASE_COLOR = 0xE0E0E8;
+    public static final int DEFAULT_SCREEN_COLOR = 0x04FF00;
+
+    private static final WrenchColors DEFAULT_COLORS = new WrenchColors(DEFAULT_CASE_COLOR, DEFAULT_SCREEN_COLOR);
 
     public record MassSelectionTarget(ResourceKey<Level> dimension, BlockPos pos) {
     }
@@ -639,6 +645,28 @@ public class WrenchItem extends Item {
     public static Mode getMode(ItemStack stack) {
         LegacyComponentMigration.migrateWrench(stack, null);
         return stack.getOrDefault(LogisticsDataComponents.WRENCH_MODE, Mode.WRENCH);
+    }
+
+    public static int getCaseColor(ItemStack stack) {
+        return stack.getOrDefault(LogisticsDataComponents.WRENCH_COLORS, DEFAULT_COLORS).caseRgb();
+    }
+
+    public static int getScreenColor(ItemStack stack) {
+        return stack.getOrDefault(LogisticsDataComponents.WRENCH_COLORS, DEFAULT_COLORS).screenRgb();
+    }
+
+    public static void setColors(ItemStack stack, int caseRgb, int screenRgb) {
+        if (stack.isEmpty() || !(stack.getItem() instanceof WrenchItem)) {
+            return;
+        }
+        stack.set(LogisticsDataComponents.WRENCH_COLORS, new WrenchColors(caseRgb, screenRgb));
+    }
+
+    public static void clearColors(ItemStack stack) {
+        if (stack.isEmpty() || !(stack.getItem() instanceof WrenchItem)) {
+            return;
+        }
+        stack.remove(LogisticsDataComponents.WRENCH_COLORS);
     }
 
     public static void setMode(ItemStack stack, Mode mode) {

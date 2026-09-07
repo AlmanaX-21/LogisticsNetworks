@@ -112,7 +112,11 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
         if (isHighlighted && !shadowPass) {
             NodeHighlightRenderer.queue(context, 0.15F, 0.45F, 1.0F, 0.35F, true);
         } else if (isHoldingWrench && !shadowPass) {
-            NodeHighlightRenderer.queue(context, 0.0F, 1.0F, 0.0F, 0.35F, false);
+            int networkColor = entity.getNetworkColor();
+            float red = ((networkColor >> 16) & 0xFF) / 255.0F;
+            float green = ((networkColor >> 8) & 0xFF) / 255.0F;
+            float blue = (networkColor & 0xFF) / 255.0F;
+            NodeHighlightRenderer.queue(context, red, green, blue, 0.35F, false);
             renderWrenchDebug(entity, context.rotation(), poseStack, buffer, light);
         }
         poseStack.popPose();

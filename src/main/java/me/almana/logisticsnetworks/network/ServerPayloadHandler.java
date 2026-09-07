@@ -144,6 +144,7 @@ public class ServerPayloadHandler {
             UUID oldNetworkId = node.getNetworkId();
             if (oldNetworkId != null && oldNetworkId.equals(targetNetwork.getId())) {
                 node.setNetworkName(targetNetwork.getName());
+                node.setNetworkColor(targetNetwork.getColor());
                 if (player.containerMenu instanceof NodeMenu menu) {
                     menu.sendNetworkListToClient(player);
                 }
@@ -160,6 +161,7 @@ public class ServerPayloadHandler {
 
             node.setNetworkId(targetNetwork.getId());
             node.setNetworkName(targetNetwork.getName());
+            node.setNetworkColor(targetNetwork.getColor());
             registry.addNodeToNetwork(targetNetwork.getId(), node.getUUID());
 
             for (int i = 0; i < LogisticsNodeEntity.CHANNEL_COUNT; i++) {
@@ -234,6 +236,60 @@ public class ServerPayloadHandler {
                 menu.sendNetworkListToClient(player);
             }
             GraphPayloadHandler.broadcast(player.getServer(), network.getId());
+        });
+    }
+
+    public static void handleSetNetworkColor(SetNetworkColorPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)) {
+                return;
+            }
+
+            NetworkRegistry registry = NetworkRegistry.get(player.serverLevel());
+            LogisticsNetwork network = registry.getNetwork(payload.networkId());
+            if (network == null || !canAccessNetwork(player, network)) {
+                return;
+            }
+
+            network.setColor(payload.color());
+            registry.setDirty();
+
+            for (UUID nodeId : network.getNodeUuids()) {
+                for (ServerLevel level : player.getServer().getAllLevels()) {
+                    Entity entity = level.getEntity(nodeId);
+                    if (entity instanceof LogisticsNodeEntity node) {
+                        node.setNetworkColor(network.getColor());
+                        break;
+                    }
+                }
+            }
+
+            if (player.containerMenu instanceof NodeMenu menu) {
+                menu.sendNetworkListToClient(player);
+            }
+        });
+    }
+
+    public static void handleSetWrenchColors(SetWrenchColorsPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)) {
+                return;
+            }
+
+            InteractionHand hand = payload.handOrdinal() == InteractionHand.OFF_HAND.ordinal()
+                    ? InteractionHand.OFF_HAND
+                    : InteractionHand.MAIN_HAND;
+            ItemStack heldStack = player.getItemInHand(hand);
+            if (!(heldStack.getItem() instanceof WrenchItem)) {
+                return;
+            }
+
+            if (payload.reset()) {
+                WrenchItem.clearColors(heldStack);
+            } else {
+                WrenchItem.setColors(heldStack, payload.caseRgb(), payload.screenRgb());
+            }
+            player.getInventory().setChanged();
         });
     }
 

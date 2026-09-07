@@ -40,6 +40,9 @@ public final class LogisticsDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<WrenchMassPlacement>> WRENCH_MASS_PLACEMENT =
             REGISTRAR.registerComponentType("wrench_mass_placement",
                     builder -> builder.persistent(WrenchMassPlacement.CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<WrenchColors>> WRENCH_COLORS =
+            REGISTRAR.registerComponentType("wrench_colors",
+                    builder -> builder.persistent(WrenchColors.CODEC).networkSynchronized(WrenchColors.STREAM_CODEC));
 
     private LogisticsDataComponents() {
     }

@@ -1,6 +1,7 @@
 package me.almana.logisticsnetworks.client;
 
 import me.almana.logisticsnetworks.LogisticsNetworks;
+import me.almana.logisticsnetworks.client.screen.WrenchColorScreen;
 import me.almana.logisticsnetworks.item.LogisticsNodeItem;
 import me.almana.logisticsnetworks.item.PatternSetterItem;
 import me.almana.logisticsnetworks.item.WrenchItem;
@@ -67,6 +68,24 @@ public class WrenchInputHandler {
     @SubscribeEvent
     public static void onClientLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         resetInputState();
+    }
+
+    @SubscribeEvent
+    public static void onKeyInput(InputEvent.Key event) {
+        if (!ClientControls.EDIT_WRENCH_COLORS.consumeClick()) {
+            return;
+        }
+
+        Minecraft minecraft = Minecraft.getInstance();
+        Player player = minecraft.player;
+        if (player == null || minecraft.screen != null || minecraft.getOverlay() != null) {
+            return;
+        }
+
+        InteractionHand hand = findWrenchHand(player);
+        if (hand != null) {
+            minecraft.setScreen(new WrenchColorScreen(player.getItemInHand(hand), hand));
+        }
     }
 
     @SubscribeEvent
@@ -173,7 +192,7 @@ public class WrenchInputHandler {
     }
 
     @Nullable
-    private static InteractionHand findWrenchHand(Player player) {
+    public static InteractionHand findWrenchHand(Player player) {
         if (player.getMainHandItem().getItem() instanceof WrenchItem) {
             return InteractionHand.MAIN_HAND;
         }

@@ -173,11 +173,15 @@ public class NetworkRegistry extends SavedData {
 
     public static NetworkRegistry load(CompoundTag compoundTag, HolderLookup.Provider provider) {
         NetworkRegistry registry = new NetworkRegistry();
+        boolean assignedDefaultColor = false;
         if (compoundTag.contains(KEY_NETWORKS, Tag.TAG_LIST)) {
             ListTag list = compoundTag.getList(KEY_NETWORKS, Tag.TAG_COMPOUND);
             for (Tag t : list) {
                 if (t instanceof CompoundTag ct) {
                     try {
+                        if (!ct.contains("Color")) {
+                            assignedDefaultColor = true;
+                        }
                         LogisticsNetwork network = LogisticsNetwork.load(ct);
                         registry.networks.put(network.getId(), network);
                     } catch (Exception e) {
@@ -189,6 +193,9 @@ public class NetworkRegistry extends SavedData {
         if (!registry.networks.isEmpty()) {
             registry.networks.keySet().forEach(registry.dispatcher::markDirty);
             LOGGER.info("Loaded {} networks.", registry.networks.size());
+        }
+        if (assignedDefaultColor) {
+            registry.setDirty();
         }
 
         return registry;
