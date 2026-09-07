@@ -1,5 +1,6 @@
 package me.almana.logisticsnetworks.client;
 
+import com.mojang.logging.LogUtils;
 import me.almana.logisticsnetworks.LogisticsNetworks;
 import me.almana.logisticsnetworks.client.model.NodeModel;
 import me.almana.logisticsnetworks.client.screen.ClipboardScreen;
@@ -7,12 +8,14 @@ import me.almana.logisticsnetworks.client.screen.ComputerScreen;
 import me.almana.logisticsnetworks.client.screen.FilterScreen;
 import me.almana.logisticsnetworks.client.screen.MassPlacementScreen;
 import me.almana.logisticsnetworks.client.screen.NodeScreen;
+import me.almana.logisticsnetworks.client.screen.NodeGraphScreen;
 import me.almana.logisticsnetworks.client.screen.PatternSetterScreen;
 import me.almana.logisticsnetworks.client.theme.ThemeState;
 import me.almana.logisticsnetworks.registration.Registration;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
@@ -29,6 +32,7 @@ public class ClientEventHandler {
     @SubscribeEvent
     public static void registerScreens(RegisterMenuScreensEvent event) {
         event.register(Registration.NODE_MENU.get(), NodeScreen::new);
+        event.register(Registration.NODE_GRAPH_MENU.get(), NodeGraphScreen::new);
         event.register(Registration.FILTER_MENU.get(), FilterScreen::new);
         event.register(Registration.CLIPBOARD_MENU.get(), ClipboardScreen::new);
         event.register(Registration.MASS_PLACEMENT_MENU.get(), MassPlacementScreen::new);
@@ -46,7 +50,24 @@ public class ClientEventHandler {
         event.enqueueWork(() -> {
             ThemeState.load();
             DefaultNodeVisibilitySync.send();
+            reserveGraphCanvas();
         });
+    }
+
+    private static void reserveGraphCanvas() {
+        if (!ModList.get().isLoaded("ftblibrary")) return;
+        try {
+            Class<?> api = Class.forName("dev.ftb.mods.ftblibrary.api.client.FTBLibraryClientApi");
+            api.getMethod("addSidebarScreenBlacklist", String[].class).invoke(api.getMethod("get").invoke(null),
+                    (Object) new String[]{NodeGraphScreen.class.getName()});
+        } catch (ReflectiveOperationException exception) {
+            LogUtils.getLogger().debug("Unable to reserve graph canvas from FTB sidebar", exception);
+        }
+    }
+
+    @SubscribeEvent
+    public static void clientLogout(ClientPlayerNetworkEvent.LoggingOut event) {
+        NodeGraphScreen.clearSession();
     }
 
     @SubscribeEvent

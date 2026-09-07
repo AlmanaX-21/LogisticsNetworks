@@ -1,5 +1,13 @@
 package me.almana.logisticsnetworks;
 
+import me.almana.logisticsnetworks.network.GraphPayloadHandler;
+import me.almana.logisticsnetworks.network.RequestOpenGraphPayload;
+import me.almana.logisticsnetworks.network.RequestNetworkGraphPayload;
+import me.almana.logisticsnetworks.network.MoveGraphVertexPayload;
+import me.almana.logisticsnetworks.network.ResetGraphLayoutPayload;
+import me.almana.logisticsnetworks.network.ReturnToComputerPayload;
+import me.almana.logisticsnetworks.network.SyncNetworkGraphPayload;
+
 import me.almana.logisticsnetworks.network.AssignNetworkPayload;
 import me.almana.logisticsnetworks.network.ClientPayloadHandler;
 import me.almana.logisticsnetworks.network.CopyPasteConnectedPayload;
@@ -129,7 +137,7 @@ public class LogisticsNetworks {
         }
 
         private void registerPayloads(final RegisterPayloadHandlersEvent event) {
-                final var registrar = event.registrar(MOD_ID).versioned("1");
+                final var registrar = event.registrar(MOD_ID).versioned("2");
 
                 // Client -> Server
                 registrar.playToServer(UpdateChannelPayload.TYPE, UpdateChannelPayload.STREAM_CODEC,
@@ -231,6 +239,19 @@ public class LogisticsNetworks {
                 registrar.playToServer(SetComputerWrenchClipboardPayload.TYPE,
                                 SetComputerWrenchClipboardPayload.STREAM_CODEC,
                                 ServerPayloadHandler::handleSetComputerWrenchClipboard);
+
+                registrar.playToServer(RequestOpenGraphPayload.TYPE, RequestOpenGraphPayload.STREAM_CODEC,
+                                GraphPayloadHandler::handleOpen);
+                registrar.playToServer(RequestNetworkGraphPayload.TYPE, RequestNetworkGraphPayload.STREAM_CODEC,
+                                GraphPayloadHandler::handleRequest);
+                registrar.playToServer(MoveGraphVertexPayload.TYPE, MoveGraphVertexPayload.STREAM_CODEC,
+                                GraphPayloadHandler::handleMove);
+                registrar.playToServer(ResetGraphLayoutPayload.TYPE, ResetGraphLayoutPayload.STREAM_CODEC,
+                                GraphPayloadHandler::handleReset);
+                registrar.playToServer(ReturnToComputerPayload.TYPE, ReturnToComputerPayload.STREAM_CODEC,
+                                GraphPayloadHandler::handleReturn);
+                registrar.playToClient(SyncNetworkGraphPayload.TYPE, SyncNetworkGraphPayload.STREAM_CODEC,
+                                ClientPayloadHandler::handleSyncNetworkGraph);
 
                 // Server -> Client
                 registrar.playToClient(SyncMassPlacementChoicesPayload.TYPE,

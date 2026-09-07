@@ -71,8 +71,8 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
     private static final int DETAIL_PANEL_Y = 38;
     private static final int DETAIL_PANEL_WIDTH = 172;
     private static final int DETAIL_PANEL_HEIGHT = 194;
-    private static final int OPTION_BTN_HEIGHT = 28;
-    private static final int OPTION_BTN_GAP = 6;
+    private static final int OPTION_BTN_HEIGHT = 24;
+    private static final int OPTION_BTN_GAP = 2;
     private static final int NODE_ENTRY_HEIGHT = 22;
     private static final int NODES_PER_PAGE = 7;
     private static final int VIS_BTN_W = 54;
@@ -409,6 +409,7 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
         int button1Y = panelY + 84;
         int button2Y = button1Y + OPTION_BTN_HEIGHT + OPTION_BTN_GAP;
         int button3Y = button2Y + OPTION_BTN_HEIGHT + OPTION_BTN_GAP;
+        int button4Y = button3Y + OPTION_BTN_HEIGHT + OPTION_BTN_GAP;
 
         boolean button1Hovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth
                 && mouseY >= button1Y && mouseY < button1Y + OPTION_BTN_HEIGHT;
@@ -423,6 +424,11 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
         renderCommandCard(g, buttonX, button2Y, buttonWidth, OPTION_BTN_HEIGHT,
                 line("gui.logisticsnetworks.computer.open_node_table"),
                 line("gui.logisticsnetworks.computer.device_topology"), button2Hovered);
+        boolean button4Hovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth
+                && mouseY >= button4Y && mouseY < button4Y + OPTION_BTN_HEIGHT;
+        renderCommandCard(g, buttonX, button4Y, buttonWidth, OPTION_BTN_HEIGHT,
+                line("gui.logisticsnetworks.graph.open"),
+                line("gui.logisticsnetworks.graph.description"), button4Hovered);
         renderCommandCard(g, buttonX, button3Y, buttonWidth, OPTION_BTN_HEIGHT,
                 line("gui.logisticsnetworks.computer.open_lnet_files"),
                 line("gui.logisticsnetworks.computer.lnet_file_ops"), button3Hovered);
@@ -436,8 +442,8 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
         g.fill(x, y, x + w, y + h, bgColor);
         g.renderOutline(x, y, w, h, borderColor);
         g.fill(x + 1, y + 1, x + w - 1, y + 8, hovered ? COLOR_ACCENT_DARK : COLOR_PANEL_HEADER);
-        g.drawString(font, trimText(label, w - 16), x + 8, y + 5, hovered ? COLOR_ACCENT : COLOR_TEXT);
-        g.drawString(font, trimText(detail, w - 16), x + 8, y + 15, COLOR_TEXT_SECONDARY);
+        g.drawString(font, trimText(label, w - 16), x + 8, y + 3, hovered ? COLOR_ACCENT : COLOR_TEXT);
+        g.drawString(font, trimText(detail, w - 16), x + 8, y + 13, COLOR_TEXT_SECONDARY);
     }
 
     private void renderChannelListPage(GuiGraphics g, int mouseX, int mouseY) {
@@ -1539,6 +1545,7 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
         int button1Y = panelY + 84;
         int button2Y = button1Y + OPTION_BTN_HEIGHT + OPTION_BTN_GAP;
         int button3Y = button2Y + OPTION_BTN_HEIGHT + OPTION_BTN_GAP;
+        int button4Y = button3Y + OPTION_BTN_HEIGHT + OPTION_BTN_GAP;
 
         if (mouseX >= buttonX && mouseX < buttonX + buttonWidth
                 && mouseY >= button1Y && mouseY < button1Y + OPTION_BTN_HEIGHT) {
@@ -1553,6 +1560,15 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
             currentPage = Page.NODE_MAP;
             nodeMapScrollOffset = 0;
             PacketDistributor.sendToServer(new RequestNetworkNodesPayload(selectedNetworkId));
+            return true;
+        }
+
+        if (mouseX >= buttonX && mouseX < buttonX + buttonWidth
+                && mouseY >= button4Y && mouseY < button4Y + OPTION_BTN_HEIGHT) {
+            NodeGraphSession.begin(selectedNetworkId);
+            PacketDistributor.sendToServer(new me.almana.logisticsnetworks.network.RequestOpenGraphPayload(
+                    menu.getComputerPos(), minecraft.level.dimension().location(), selectedNetworkId,
+                    java.util.Optional.empty(), 0));
             return true;
         }
 
@@ -1846,6 +1862,13 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
     }
 
     public void receiveNetworkList(List<SyncNetworkListPayload.NetworkEntry> networks) {
+        UUID returningNetwork = NodeGraphSession.takeReturningNetwork();
+        if (returningNetwork != null) {
+            networks.stream().filter(network -> network.id().equals(returningNetwork)).findFirst().ifPresent(network -> {
+                selectedNetworkId = network.id();
+                selectedNetworkName = network.name();
+            });
+        }
         LOGGER.debug("Received network list with {} entries", networks.size());
         for (SyncNetworkListPayload.NetworkEntry entry : networks) {
             LOGGER.debug("  - {} ({} nodes)", entry.name(), entry.nodeCount());

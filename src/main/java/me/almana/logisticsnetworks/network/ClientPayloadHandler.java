@@ -3,7 +3,8 @@ package me.almana.logisticsnetworks.network;
 import me.almana.logisticsnetworks.client.screen.ComputerScreen;
 import me.almana.logisticsnetworks.client.screen.FilterScreen;
 import me.almana.logisticsnetworks.client.screen.MassPlacementScreen;
-import me.almana.logisticsnetworks.client.screen.NodeScreen;
+import me.almana.logisticsnetworks.client.screen.NodeEditorScreen;
+import me.almana.logisticsnetworks.client.screen.NodeGraphScreen;
 import me.almana.logisticsnetworks.data.ChannelData;
 import me.almana.logisticsnetworks.menu.NodeMenu;
 import me.almana.logisticsnetworks.menu.FilterMenu;
@@ -21,7 +22,7 @@ public class ClientPayloadHandler {
         context.enqueueWork(() -> {
             var screen = Minecraft.getInstance().screen;
             LOGGER.debug("Current screen: {}", screen != null ? screen.getClass().getSimpleName() : "null");
-            if (screen instanceof NodeScreen nodeScreen) {
+            if (screen instanceof NodeEditorScreen<?> nodeScreen) {
                 LOGGER.debug("Passing to NodeScreen");
                 nodeScreen.receiveNetworkList(payload.networks());
             } else if (screen instanceof ComputerScreen computerScreen) {
@@ -29,6 +30,14 @@ public class ClientPayloadHandler {
                 computerScreen.receiveNetworkList(payload.networks());
             } else {
                 LOGGER.debug("Screen is not NodeScreen or ComputerScreen, ignoring");
+            }
+        });
+    }
+
+    public static void handleSyncNetworkGraph(SyncNetworkGraphPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (Minecraft.getInstance().screen instanceof NodeGraphScreen screen) {
+                screen.receiveGraph(payload);
             }
         });
     }
@@ -45,7 +54,7 @@ public class ClientPayloadHandler {
     public static void handleSyncNetworkLabels(SyncNetworkLabelsPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             var screen = Minecraft.getInstance().screen;
-            if (screen instanceof NodeScreen nodeScreen) {
+            if (screen instanceof NodeEditorScreen<?> nodeScreen) {
                 nodeScreen.receiveNetworkLabels(payload.labels());
             }
         });

@@ -19,6 +19,7 @@ val mod_authors: String by project
 val mod_description: String by project
 val jei_version: String by project
 val jade_version: String by project
+val iris_version: String by project
 val parchment_minecraft_version: String by project
 val parchment_mappings_version: String by project
 val mekanism_version: String by project
@@ -144,6 +145,10 @@ dependencies {
 
     compileOnly("maven.modrinth:jade:${jade_version}")
     runtimeOnly("maven.modrinth:jade:${jade_version}")
+
+    compileOnly("maven.modrinth:iris:${iris_version}") {
+        isTransitive = false
+    }
 
     compileOnly("maven.modrinth:sophisticated-core:${sophisticated_core_version}") {
         isTransitive = false

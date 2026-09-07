@@ -5,11 +5,13 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import me.almana.logisticsnetworks.ClientConfig;
 import me.almana.logisticsnetworks.Config;
 import me.almana.logisticsnetworks.LogisticsNetworks;
+import me.almana.logisticsnetworks.client.flow.WrenchFlowRenderer;
 import me.almana.logisticsnetworks.client.model.NodeModel;
 import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
 import me.almana.logisticsnetworks.integration.create.CreateCompat;
 import me.almana.logisticsnetworks.integration.create.NodeAttachmentKey;
 import me.almana.logisticsnetworks.integration.create.NodeRenderContext;
+import me.almana.logisticsnetworks.integration.iris.IrisCompat;
 import me.almana.logisticsnetworks.registration.Registration;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -58,6 +60,7 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
     private static Set<Integer> allowedNodeIds;
     private static Set<Integer> visibleNodeIds;
     private static long lastComputeTick = -1;
+    private static net.minecraft.client.multiplayer.ClientLevel selectionLevel;
     private static final Map<NodeAttachmentKey, LogisticsNodeEntity> nodesByAttachment = new HashMap<>();
     private static long lastLookupTick = -1;
 
@@ -80,6 +83,7 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
         boolean isVisible = entity.isRenderVisible();
         boolean isHighlighted = entity.isHighlighted();
         boolean isHoldingWrench = mc.player.isHolding(Registration.WRENCH.get());
+        boolean shadowPass = IrisCompat.isRenderingShadowPass();
 
         if (!isVisible && !isHighlighted && !isHoldingWrench)
             return;
@@ -99,18 +103,21 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
         poseStack.pushPose();
         poseStack.mulPose(context.rotation());
         if ((isVisible || isHoldingWrench || isHighlighted) && canRenderModel) {
+            if (isHoldingWrench && !shadowPass) {
+                WrenchFlowRenderer.queue(entity, poseStack.last(), mc.gameRenderer.getMainCamera().getPosition());
+            }
             renderModel(entity, context, partialTick, poseStack, buffer, light, isVisible);
         }
 
-        if (isHighlighted) {
+        if (isHighlighted && !shadowPass) {
             NodeHighlightRenderer.queue(context, 0.15F, 0.45F, 1.0F, 0.35F, true);
-        } else if (isHoldingWrench) {
+        } else if (isHoldingWrench && !shadowPass) {
             NodeHighlightRenderer.queue(context, 0.0F, 1.0F, 0.0F, 0.35F, false);
             renderWrenchDebug(entity, context.rotation(), poseStack, buffer, light);
         }
         poseStack.popPose();
 
-        if (isHoldingWrench || isHighlighted) {
+        if (!shadowPass && (isHoldingWrench || isHighlighted)) {
             super.render(entity, yaw, partialTick, poseStack, buffer, light);
         }
         poseStack.popPose();
@@ -220,6 +227,12 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
     }
 
     private static void updateAllowedNodes(Minecraft mc) {
+        if (selectionLevel != mc.level) {
+            selectionLevel = mc.level;
+            allowedNodeIds = null;
+            visibleNodeIds = null;
+            lastComputeTick = -5;
+        }
         if (mc.level == null || mc.player == null) {
             allowedNodeIds = null;
             visibleNodeIds = null;
@@ -424,7 +437,7 @@ public class LogisticsNodeRenderer extends EntityRenderer<LogisticsNodeEntity> {
         return node.isAlive() && (node.isRenderVisible() || node.isHighlighted() || isWrenchVisible(node));
     }
 
-    private static boolean isWrenchVisible(LogisticsNodeEntity entity) {
+    public static boolean isWrenchVisible(LogisticsNodeEntity entity) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null || !mc.player.isHolding(Registration.WRENCH.get())) {
             return false;

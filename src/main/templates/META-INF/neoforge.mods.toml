@@ -107,6 +107,13 @@ ordering = "NONE"
 side = "CLIENT"
 
 [[dependencies."${mod_id}"]]
+modId = "iris"
+type = "optional"
+versionRange = "[1.8,)"
+ordering = "AFTER"
+side = "CLIENT"
+
+[[dependencies."${mod_id}"]]
 modId = "guideme"
 type = "optional"
 versionRange = "[21.1.0,)"

@@ -1,5 +1,6 @@
 package me.almana.logisticsnetworks.data;
 
+import me.almana.logisticsnetworks.data.graph.GraphPosition;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -11,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 
 import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
@@ -30,11 +32,16 @@ public class LogisticsNetwork {
     private static final String KEY_NODE_UUID = "Node";
     private static final String KEY_OWNER_UUID = "OwnerUUID";
     private static final String KEY_CHANNEL_NAMES = "ChannelNames";
+    private static final String KEY_GRAPH_POSITIONS = "GraphPositions";
+    private static final String KEY_GRAPH_X = "X";
+    private static final String KEY_GRAPH_Y = "Y";
+    private static final float MAX_GRAPH_COORDINATE = 1_000_000.0F;
 
     private final UUID id;
     private String name;
     private UUID ownerUuid;
     private final Set<UUID> nodeUuids = new HashSet<>();
+    private final Map<String, GraphPosition> graphPositions = new HashMap<>();
     private boolean sleeping = true;
 
     // Runtime flags
@@ -114,6 +121,17 @@ public class LogisticsNetwork {
         }
         tag.put(KEY_CHANNEL_NAMES, channelNamesTag);
 
+        if (!graphPositions.isEmpty()) {
+            CompoundTag positionsTag = new CompoundTag();
+            for (Map.Entry<String, GraphPosition> entry : new TreeMap<>(graphPositions).entrySet()) {
+                CompoundTag positionTag = new CompoundTag();
+                positionTag.putFloat(KEY_GRAPH_X, entry.getValue().x());
+                positionTag.putFloat(KEY_GRAPH_Y, entry.getValue().y());
+                positionsTag.put(entry.getKey(), positionTag);
+            }
+            tag.put(KEY_GRAPH_POSITIONS, positionsTag);
+        }
+
         return tag;
     }
 
@@ -145,6 +163,21 @@ public class LogisticsNetwork {
                 network.channelNames[i] = namesTag.getCompound(i).getString("Name");
             }
         }
+        if (tag.contains(KEY_GRAPH_POSITIONS, Tag.TAG_COMPOUND)) {
+            CompoundTag positionsTag = tag.getCompound(KEY_GRAPH_POSITIONS);
+            for (String key : positionsTag.getAllKeys()) {
+                if (!(positionsTag.get(key) instanceof CompoundTag positionTag)
+                        || !positionTag.contains(KEY_GRAPH_X, Tag.TAG_ANY_NUMERIC)
+                        || !positionTag.contains(KEY_GRAPH_Y, Tag.TAG_ANY_NUMERIC)) {
+                    continue;
+                }
+                GraphPosition position = new GraphPosition(
+                        positionTag.getFloat(KEY_GRAPH_X), positionTag.getFloat(KEY_GRAPH_Y));
+                if (validGraphKey(key) && validGraphPosition(position)) {
+                    network.graphPositions.put(key, position);
+                }
+            }
+        }
 
         return network;
     }
@@ -158,7 +191,33 @@ public class LogisticsNetwork {
 
     public void removeNode(UUID nodeUuid) {
         nodeUuids.remove(nodeUuid);
+        graphPositions.remove("node:" + nodeUuid);
         markCacheDirty();
+    }
+
+    public Map<String, GraphPosition> getGraphPositions() {
+        return Collections.unmodifiableMap(graphPositions);
+    }
+
+    public void setGraphPosition(String key, GraphPosition position) {
+        if (!validGraphKey(key) || !validGraphPosition(position)) {
+            throw new IllegalArgumentException("Invalid graph position");
+        }
+        graphPositions.put(key, position);
+    }
+
+    public void resetGraphPositions() {
+        graphPositions.clear();
+    }
+
+    private static boolean validGraphKey(String key) {
+        return !key.isBlank() && key.length() <= 256;
+    }
+
+    private static boolean validGraphPosition(GraphPosition position) {
+        return Float.isFinite(position.x()) && Float.isFinite(position.y())
+                && Math.abs(position.x()) <= MAX_GRAPH_COORDINATE
+                && Math.abs(position.y()) <= MAX_GRAPH_COORDINATE;
     }
 
     public UUID getId() {

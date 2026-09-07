@@ -4,6 +4,7 @@ import me.almana.logisticsnetworks.data.LogisticsNetwork;
 import me.almana.logisticsnetworks.data.NetworkRegistry;
 import me.almana.logisticsnetworks.entity.LogisticsNodeEntity;
 import me.almana.logisticsnetworks.network.SyncNetworkListPayload;
+import me.almana.logisticsnetworks.network.GraphPayloadHandler;
 import me.almana.logisticsnetworks.registration.ModTags;
 import me.almana.logisticsnetworks.registration.Registration;
 import net.minecraft.network.FriendlyByteBuf;
@@ -13,6 +14,7 @@ import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -43,9 +45,15 @@ public class NodeMenu extends AbstractContainerMenu {
 
     // Server-side
     public NodeMenu(int containerId, Inventory playerInv, LogisticsNodeEntity node) {
-        super(Registration.NODE_MENU.get(), containerId);
+        this(Registration.NODE_MENU.get(), containerId, playerInv, node, 0);
+    }
+
+    protected NodeMenu(MenuType<?> type, int containerId, Inventory playerInv,
+            LogisticsNodeEntity node, int selectedChannel) {
+        super(type, containerId);
         this.node = node;
-        this.nodeId = node.getId();
+        this.nodeId = node == null ? -1 : node.getId();
+        this.selectedChannel = Math.clamp(selectedChannel, 0, LogisticsNodeEntity.CHANNEL_COUNT - 1);
         this.upgradeContainer = new UpgradeItemsContainer();
 
         layoutNodeSlots();
@@ -84,13 +92,26 @@ public class NodeMenu extends AbstractContainerMenu {
         // Main Inventory (rows)
         for (int r = 0; r < 3; r++) {
             for (int c = 0; c < 9; c++) {
-                addSlot(new Slot(inv, c + r * 9 + 9, PLAYER_INV_X + c * 18, PLAYER_INV_Y + r * 18));
+                addSlot(playerSlot(inv, c + r * 9 + 9, PLAYER_INV_X + c * 18, PLAYER_INV_Y + r * 18));
             }
         }
         // Hotbar
         for (int c = 0; c < 9; c++) {
-            addSlot(new Slot(inv, c, PLAYER_INV_X + c * 18, PLAYER_INV_Y + 58));
+            addSlot(playerSlot(inv, c, PLAYER_INV_X + c * 18, PLAYER_INV_Y + 58));
         }
+    }
+
+    private Slot playerSlot(Inventory inventory, int index, int x, int y) {
+        return new Slot(inventory, index, x, y) {
+            @Override
+            public boolean isActive() {
+                return hasVisibleInventory();
+            }
+        };
+    }
+
+    protected boolean hasVisibleInventory() {
+        return true;
     }
 
     public LogisticsNodeEntity getNode() {
@@ -155,11 +176,13 @@ public class NodeMenu extends AbstractContainerMenu {
     private void markDirty() {
         if (node != null && node.getNetworkId() != null && node.level() instanceof ServerLevel level) {
             NetworkRegistry.get(level).invalidateNetwork(node.getNetworkId());
+            GraphPayloadHandler.broadcast(level.getServer(), node.getNetworkId());
         }
     }
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
+        if (!nodeSlotsActive || !hasAvailableNode()) return ItemStack.EMPTY;
         Slot fromSlot = slots.get(index);
         if (fromSlot == null || !fromSlot.hasItem())
             return ItemStack.EMPTY;
@@ -271,12 +294,17 @@ public class NodeMenu extends AbstractContainerMenu {
 
         @Override
         public boolean isActive() {
-            return nodeSlotsActive;
+            return nodeSlotsActive && hasAvailableNode();
+        }
+
+        @Override
+        public boolean mayPickup(Player player) {
+            return isActive();
         }
 
         @Override
         public boolean mayPlace(ItemStack stack) {
-            if (stack.isEmpty() || !stack.is(ModTags.UPGRADES)) {
+            if (!isActive() || stack.isEmpty() || !stack.is(ModTags.UPGRADES)) {
                 return false;
             }
             for (int i = 0; i < UPGRADE_SLOTS; i++) {
@@ -294,5 +322,9 @@ public class NodeMenu extends AbstractContainerMenu {
         public int getMaxStackSize() {
             return 1;
         }
+    }
+
+    protected boolean hasAvailableNode() {
+        return node != null;
     }
 }

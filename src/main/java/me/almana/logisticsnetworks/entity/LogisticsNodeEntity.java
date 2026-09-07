@@ -1,8 +1,10 @@
 package me.almana.logisticsnetworks.entity;
 
 import me.almana.logisticsnetworks.data.ChannelData;
+import me.almana.logisticsnetworks.data.NodeRouteChannels;
 import me.almana.logisticsnetworks.integration.create.CreateCompat;
 import me.almana.logisticsnetworks.logic.NodeAccessPolicy;
+import me.almana.logisticsnetworks.upgrade.NodeUpgradeData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -79,6 +81,8 @@ public class LogisticsNodeEntity extends Entity {
             .defineId(LogisticsNodeEntity.class, EntityDataSerializers.OPTIONAL_UUID);
     private static final EntityDataAccessor<BlockPos> CREATE_LOCAL_POS = SynchedEntityData
             .defineId(LogisticsNodeEntity.class, EntityDataSerializers.BLOCK_POS);
+    private static final EntityDataAccessor<Long> ROUTE_CHANNELS = SynchedEntityData
+            .defineId(LogisticsNodeEntity.class, EntityDataSerializers.LONG);
 
     private final ChannelData[] channels = new ChannelData[CHANNEL_COUNT];
     private final ItemStack[] upgradeItems = new ItemStack[UPGRADE_SLOT_COUNT];
@@ -96,6 +100,7 @@ public class LogisticsNodeEntity extends Entity {
         }
 
         Arrays.fill(this.upgradeItems, ItemStack.EMPTY);
+        refreshRouteChannels();
     }
 
     public LogisticsNodeEntity(EntityType<LogisticsNodeEntity> entityType, Level level, BlockPos pos) {
@@ -116,6 +121,7 @@ public class LogisticsNodeEntity extends Entity {
         builder.define(HIGHLIGHTED, false);
         builder.define(CREATE_CONTRAPTION_ID, Optional.empty());
         builder.define(CREATE_LOCAL_POS, BlockPos.ZERO);
+        builder.define(ROUTE_CHANNELS, 0L);
     }
 
     @Override
@@ -177,6 +183,7 @@ public class LogisticsNodeEntity extends Entity {
                 }
             }
         }
+        refreshRouteChannels();
     }
 
     @Override
@@ -234,6 +241,9 @@ public class LogisticsNodeEntity extends Entity {
 
     @Override
     public void tick() {
+        if (!this.level().isClientSide() && (this.tickCount <= 1 || this.tickCount % 5 == 0)) {
+            refreshRouteChannels();
+        }
         if (isMountedOnCreate()) {
             CreateCompat.tickMountedNode(this);
             return;
@@ -264,6 +274,16 @@ public class LogisticsNodeEntity extends Entity {
                 }
             }
         }
+    }
+
+    private void refreshRouteChannels() {
+        long bits = 0L;
+        if (isValidNode() && getNetworkId() != null && CreateCompat.isResolved(this)) {
+            bits = NodeRouteChannels.encode(channels, isMountedOnCreate(),
+                    NodeUpgradeData.hasMekanismChemicalUpgrade(this),
+                    NodeUpgradeData.hasArsSourceUpgrade(this));
+        }
+        this.entityData.set(ROUTE_CHANNELS, bits);
     }
 
     @Override
@@ -412,6 +432,10 @@ public class LogisticsNodeEntity extends Entity {
 
     public void setHighlighted(boolean highlighted) {
         this.entityData.set(HIGHLIGHTED, highlighted);
+    }
+
+    public long getRouteChannels() {
+        return this.entityData.get(ROUTE_CHANNELS);
     }
 
     @Nullable

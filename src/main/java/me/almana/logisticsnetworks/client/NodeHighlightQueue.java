@@ -1,5 +1,6 @@
 package me.almana.logisticsnetworks.client;
 
+import me.almana.logisticsnetworks.integration.iris.IrisCompat;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Quaternionf;
@@ -19,12 +20,21 @@ final class NodeHighlightQueue {
     }
 
     static List<HighlightRequest> drain(RenderLevelStageEvent.Stage stage) {
-        if (stage != RenderLevelStageEvent.Stage.AFTER_PARTICLES || REQUESTS.isEmpty()) {
+        if (stage == RenderLevelStageEvent.Stage.AFTER_SKY) {
+            clear();
+        }
+        var renderStage = IrisCompat.isLoaded() ? RenderLevelStageEvent.Stage.AFTER_LEVEL
+                : RenderLevelStageEvent.Stage.AFTER_PARTICLES;
+        if (stage != renderStage || REQUESTS.isEmpty()) {
             return List.of();
         }
         List<HighlightRequest> requests = List.copyOf(REQUESTS);
         REQUESTS.clear();
         return requests;
+    }
+
+    static void clear() {
+        REQUESTS.clear();
     }
 
     record HighlightRequest(Vec3 position, Quaternionf rotation, float red, float green, float blue, float alpha,

@@ -2,13 +2,14 @@ package me.almana.logisticsnetworks.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.systems.RenderSystem;
 import me.almana.logisticsnetworks.LogisticsNetworks;
+import me.almana.logisticsnetworks.integration.iris.IrisCompat;
 import me.almana.logisticsnetworks.item.WrenchItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
@@ -17,6 +18,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import org.lwjgl.opengl.GL11;
 
 @EventBusSubscriber(modid = LogisticsNetworks.MOD_ID, value = Dist.CLIENT)
 public final class MassPlacementSelectionRenderer {
@@ -35,7 +37,9 @@ public final class MassPlacementSelectionRenderer {
 
     @SubscribeEvent
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
+        var renderStage = IrisCompat.isLoaded() ? RenderLevelStageEvent.Stage.AFTER_LEVEL
+                : RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS;
+        if (event.getStage() != renderStage || IrisCompat.isRenderingShadowPass()) {
             return;
         }
 
@@ -56,33 +60,42 @@ public final class MassPlacementSelectionRenderer {
             return;
         }
 
+        renderSelection(event, area);
+    }
+
+    private static void renderSelection(RenderLevelStageEvent event, WrenchItem.MassSelectionArea area) {
+        Minecraft minecraft = Minecraft.getInstance();
         PoseStack poseStack = event.getPoseStack();
         Vec3 cameraPos = event.getCamera().getPosition();
         MultiBufferSource.BufferSource bufferSource = minecraft.renderBuffers().bufferSource();
-        VertexConsumer consumer = bufferSource.getBuffer(RenderType.lines());
+        RenderType renderType = IrisCompat.isLoaded() ? ModRenderTypes.SELECTION_LINES : RenderType.lines();
 
-        BlockPos min = area.min();
-        BlockPos max = area.max();
-        double centerX = (min.getX() + max.getX() + 1.0D) * 0.5D;
-        double centerY = (min.getY() + max.getY() + 1.0D) * 0.5D;
-        double centerZ = (min.getZ() + max.getZ() + 1.0D) * 0.5D;
-        double dx = centerX - cameraPos.x;
-        double dy = centerY - cameraPos.y;
-        double dz = centerZ - cameraPos.z;
-        if ((dx * dx) + (dy * dy) + (dz * dz) <= MAX_RENDER_DISTANCE_SQR) {
-            AABB baseBox = new AABB(min.getX(), min.getY(), min.getZ(),
-                    max.getX() + 1.0D, max.getY() + 1.0D, max.getZ() + 1.0D);
-
-            poseStack.pushPose();
-            poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
-            for (int i = 0; i < OUTLINE_PASSES; i++) {
-                AABB box = baseBox.inflate(OUTLINE_INFLATE + OUTLINE_STEP * i);
-                LevelRenderer.renderLineBox(poseStack, consumer, box,
-                        OUTLINE_RED, OUTLINE_GREEN, OUTLINE_BLUE, OUTLINE_ALPHA);
+        AABB baseBox = AABB.encapsulatingFullBlocks(area.min(), area.max());
+        if (baseBox.getCenter().distanceToSqr(cameraPos) > MAX_RENDER_DISTANCE_SQR) return;
+        bufferSource.endLastBatch();
+        boolean depthTest = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+        poseStack.pushPose();
+        try {
+            if (IrisCompat.isLoaded()) {
+                minecraft.getMainRenderTarget().bindWrite(false);
+                poseStack.mulPose(event.getModelViewMatrix());
             }
+            poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
+            renderOutline(poseStack, bufferSource.getBuffer(renderType), baseBox);
+            bufferSource.endBatch(renderType);
+        } finally {
+            if (depthTest) RenderSystem.enableDepthTest();
+            else RenderSystem.disableDepthTest();
             poseStack.popPose();
         }
-        bufferSource.endBatch(RenderType.lines());
+    }
+
+    private static void renderOutline(PoseStack poseStack, VertexConsumer consumer, AABB baseBox) {
+        for (int i = 0; i < OUTLINE_PASSES; i++) {
+            AABB box = baseBox.inflate(OUTLINE_INFLATE + OUTLINE_STEP * i);
+            LevelRenderer.renderLineBox(poseStack, consumer, box,
+                    OUTLINE_RED, OUTLINE_GREEN, OUTLINE_BLUE, OUTLINE_ALPHA);
+        }
     }
 
     private static ItemStack getMassPlacementWrench(Player player) {

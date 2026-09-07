@@ -1371,8 +1371,16 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
             return false;
         }
         flushManualInputToServer();
-        PacketDistributor.sendToServer(new OpenNodeMenuPayload(
-                menu.getNodeSource().getId(), menu.getNodeChannel()));
+        if (menu.getGraphContext() != null) {
+            flushOpenEditors();
+            var graph = menu.getGraphContext();
+            PacketDistributor.sendToServer(new me.almana.logisticsnetworks.network.RequestOpenGraphPayload(
+                    graph.computerPos(), graph.computerDimension(), graph.networkId(),
+                    java.util.Optional.of(menu.getNodeSource().getUUID()), menu.getNodeChannel()));
+        } else {
+            PacketDistributor.sendToServer(new OpenNodeMenuPayload(
+                    menu.getNodeSource().getId(), menu.getNodeChannel()));
+        }
         return true;
     }
 
