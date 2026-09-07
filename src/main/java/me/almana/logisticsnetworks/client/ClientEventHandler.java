@@ -11,6 +11,8 @@ import me.almana.logisticsnetworks.client.screen.NodeScreen;
 import me.almana.logisticsnetworks.client.screen.NodeGraphScreen;
 import me.almana.logisticsnetworks.client.screen.PatternSetterScreen;
 import me.almana.logisticsnetworks.client.theme.ThemeState;
+import me.almana.logisticsnetworks.client.tooltip.ClientFilterPreviewTooltip;
+import me.almana.logisticsnetworks.client.tooltip.FilterPreviewTooltip;
 import me.almana.logisticsnetworks.registration.Registration;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -19,6 +21,7 @@ import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
 @EventBusSubscriber(modid = LogisticsNetworks.MOD_ID, value = Dist.CLIENT)
@@ -38,6 +41,11 @@ public class ClientEventHandler {
         event.register(Registration.MASS_PLACEMENT_MENU.get(), MassPlacementScreen::new);
         event.register(Registration.PATTERN_SETTER_MENU.get(), PatternSetterScreen::new);
         event.register(Registration.COMPUTER_MENU.get(), ComputerScreen::new);
+    }
+
+    @SubscribeEvent
+    public static void registerTooltips(RegisterClientTooltipComponentFactoriesEvent event) {
+        event.register(FilterPreviewTooltip.class, ClientFilterPreviewTooltip::new);
     }
 
     @SubscribeEvent

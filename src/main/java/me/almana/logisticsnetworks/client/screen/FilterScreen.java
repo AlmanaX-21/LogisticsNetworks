@@ -1,9 +1,8 @@
 package me.almana.logisticsnetworks.client.screen;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import me.almana.logisticsnetworks.client.ClientControls;
 import me.almana.logisticsnetworks.client.FilterClickHandler;
+import me.almana.logisticsnetworks.client.FilterResourceRenderer;
 import me.almana.logisticsnetworks.filter.DurabilityFilterData;
 import me.almana.logisticsnetworks.filter.FilterItemData;
 import me.almana.logisticsnetworks.filter.FilterTagUtil;
@@ -27,7 +26,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -38,12 +36,10 @@ import me.almana.logisticsnetworks.network.OpenNodeMenuPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -542,7 +538,8 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
                             if (!list.isEmpty()) {
                                 long tick = (System.currentTimeMillis() / 1000);
                                 int idx = (int) (tick % list.size());
-                                renderFluidStack(g, new FluidStack(list.get(idx), 1000), sx + 1, sy + 1);
+                                FilterResourceRenderer.renderFluid(g,
+                                        new FluidStack(list.get(idx), 1000), sx + 1, sy + 1);
                             }
                         } else if (targetType == FilterTargetType.CHEMICALS) {
                             g.drawString(font, "#", sx + 5, sy + 5, 0xFF44BB44, true);
@@ -888,30 +885,9 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
                 var slot = menu.slots.get(i);
                 int x = leftPos + slot.x;
                 int y = topPos + slot.y;
-                renderFluidStack(g, fs, x, y);
+                FilterResourceRenderer.renderFluid(g, fs, x, y);
             }
         }
-    }
-
-    private void renderFluidStack(GuiGraphics g, FluidStack stack, int x, int y) {
-        IClientFluidTypeExtensions clientFluid = IClientFluidTypeExtensions.of(stack.getFluid());
-        ResourceLocation stillTex = clientFluid.getStillTexture(stack);
-        if (stillTex == null)
-            return;
-
-        TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(stillTex);
-        int color = clientFluid.getTintColor(stack);
-
-        float r = ((color >> 16) & 0xFF) / 255f;
-        float gr = ((color >> 8) & 0xFF) / 255f;
-        float b = (color & 0xFF) / 255f;
-
-        RenderSystem.setShaderTexture(0, InventoryMenu.BLOCK_ATLAS);
-        RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(r, gr, b, 1.0f);
-        g.blit(x, y, 0, 16, 16, sprite);
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-        RenderSystem.disableBlend();
     }
 
     private void renderChemicalGhostItems(GuiGraphics g) {
@@ -921,29 +897,9 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
                 var slot = menu.slots.get(i);
                 int x = leftPos + slot.x;
                 int y = topPos + slot.y;
-                renderChemicalStack(g, chemId, x, y);
+                FilterResourceRenderer.renderChemical(g, chemId, x, y);
             }
         }
-    }
-
-    private void renderChemicalStack(GuiGraphics g, String chemId, int x, int y) {
-        ResourceLocation iconPath = MekanismCompat.getChemicalIcon(chemId);
-        if (iconPath == null)
-            return;
-
-        TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(iconPath);
-        int color = MekanismCompat.getChemicalTint(chemId);
-
-        float r = ((color >> 16) & 0xFF) / 255f;
-        float gr = ((color >> 8) & 0xFF) / 255f;
-        float b = (color & 0xFF) / 255f;
-
-        RenderSystem.setShaderTexture(0, InventoryMenu.BLOCK_ATLAS);
-        RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(r, gr, b, 1.0f);
-        g.blit(x, y, 0, 16, 16, sprite);
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-        RenderSystem.disableBlend();
     }
 
     private String scrollText(String text, int width, int offset) {
@@ -3460,7 +3416,8 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
                     }
                     if (!list.isEmpty()) {
                         int idx = (int) ((System.currentTimeMillis() / 1000) % list.size());
-                        renderFluidStack(g, new FluidStack(list.get(idx), 1000), slotX + 1, slotY + 1);
+                        FilterResourceRenderer.renderFluid(g,
+                                new FluidStack(list.get(idx), 1000), slotX + 1, slotY + 1);
                     }
                 } else if (detailTargetType == FilterTargetType.CHEMICALS) {
                     g.drawString(font, "#", slotX + 5, slotY + 5, DETAIL_TAG_COLOR, true);
@@ -3484,7 +3441,8 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
             if (detailTargetType == FilterTargetType.FLUIDS) {
                 ResourceLocation fluidId = ResourceLocation.tryParse(idVal);
                 if (fluidId != null && BuiltInRegistries.FLUID.containsKey(fluidId)) {
-                    renderFluidStack(g, new FluidStack(BuiltInRegistries.FLUID.get(fluidId), 1000), slotX + 1, slotY + 1);
+                    FilterResourceRenderer.renderFluid(g,
+                            new FluidStack(BuiltInRegistries.FLUID.get(fluidId), 1000), slotX + 1, slotY + 1);
                 } else {
                     g.renderOutline(slotX, slotY, 18, 18, COL_ACCENT);
                     int qx = slotX + (18 - font.width("?")) / 2;
@@ -3492,7 +3450,7 @@ public class FilterScreen extends AbstractContainerScreen<FilterMenu> {
                 }
             } else if (detailTargetType == FilterTargetType.CHEMICALS) {
                 if (MekanismCompat.isValidChemicalId(idVal)) {
-                    renderChemicalStack(g, idVal, slotX + 1, slotY + 1);
+                    FilterResourceRenderer.renderChemical(g, idVal, slotX + 1, slotY + 1);
                 } else {
                     g.renderOutline(slotX, slotY, 18, 18, COL_ACCENT);
                     int qx = slotX + (18 - font.width("?")) / 2;
